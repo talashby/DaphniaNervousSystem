@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include "ParallelPhysics/PPhHelpers.h"
+
 class NervousSystem
 {
 public:
@@ -9,5 +11,6 @@ public:
 	NervousSystem() = default;
 	virtual ~NervousSystem() = default;
 
+	void PhotonReceived(uint8_t m_posX, uint8_t m_posY, PPh::EtherColor m_color);
 };
 
