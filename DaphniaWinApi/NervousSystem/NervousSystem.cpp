@@ -1,6 +1,8 @@
 #include "NervousSystem.h"
+#include <array>
 
 NervousSystem* s_nervousSystem = nullptr;
+std::array s_eyeNetwork[]
 
 void NervousSystem::Init()
 {
