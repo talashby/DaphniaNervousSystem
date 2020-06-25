@@ -55,6 +55,8 @@ public:
 		uint64_t &outClientServerPerformanceRatio,
 		uint64_t &outServerClientPerformanceRatio);
 
+	uint32_t GetServerProtocolVersion() const;
+
 	// Set motor neurons
 	void SetIsLeft(bool value) { m_isLeft = value; }
 	void SetIsRight(bool value) { m_isRight = value; }
@@ -73,7 +75,8 @@ private:
 
 	uint32_t m_socketC;
 	uint32_t m_port;
-
+	uint32_t m_serverProtocolVersion = 0;
+		
 	const int32_t EYE_IMAGE_DELAY = 5000; // quantum of time
 	const int32_t ECHOLOCATION_FREQUENCY = 1; // quantum of time
 	int32_t m_echolocationCounter = 0;

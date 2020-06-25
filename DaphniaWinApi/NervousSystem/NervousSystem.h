@@ -5,12 +5,14 @@
 
 class Neuron
 {
+public:
 	Neuron() = default;
 	virtual ~Neuron() = default;
 };
 
 class SimpleAdder : public Neuron
 {
+	SimpleAdder() = default;
 };
 
 class NervousSystem

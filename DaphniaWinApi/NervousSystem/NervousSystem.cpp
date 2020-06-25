@@ -2,7 +2,7 @@
 #include <array>
 
 NervousSystem* s_nervousSystem = nullptr;
-std::array s_eyeNetwork[]
+//std::array s_eyeNetwork[]
 
 void NervousSystem::Init()
 {
