@@ -138,6 +138,7 @@ void ObserverClient::StopSimulation()
 	{
 		s_simulationThread.join();
 	}
+	NervousSystem::Instance()->StopSimulation();
 }
 
 bool ObserverClient::IsSimulationRunning() const
@@ -211,6 +212,10 @@ void ObserverClient::PPhTick()
 			if (const MsgGetStateResponse *msgGetStateResponse = QueryMessage<MsgGetStateResponse>(buffer))
 			{
 				timeOfTheUniverse = msgGetStateResponse->m_time;
+				static bool once = []() {
+					NervousSystem::Instance()->StartSimulation(timeOfTheUniverse);
+					return true;
+				} ();
 			}
 			else if (const MsgGetStateExtResponse *msgGetStateExtResponse = QueryMessage<MsgGetStateExtResponse>(buffer))
 			{
@@ -285,6 +290,7 @@ void ObserverClient::PPhTick()
 				std::atomic_store(&m_spEyeColorArrayOut, spEyeColorArrayOut);
 			}
 		}
+		NervousSystem::Instance()->NextTick(timeOfTheUniverse);
 	}
 
 	int64_t timeEllapsed;

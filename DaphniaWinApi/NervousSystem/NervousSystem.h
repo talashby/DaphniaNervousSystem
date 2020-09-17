@@ -23,9 +23,13 @@ public:
 	NervousSystem() = default;
 	virtual ~NervousSystem() = default;
 
+	void StartSimulation(uint64_t timeOfTheUniverse);
+	void StopSimulation();
+	bool IsSimulationRunning() const;
+	void NextTick(uint64_t timeOfTheUniverse);
+
 	void PhotonReceived(uint8_t m_posX, uint8_t m_posY, PPh::EtherColor m_color);
 
 private:
-	
 };
 
