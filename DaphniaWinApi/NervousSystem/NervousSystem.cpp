@@ -5,6 +5,12 @@
 #include <atomic>
 #include <assert.h>
 
+// constants
+
+constexpr int32_t ReinforcementForConditionedReflex = 10;
+
+//
+
 NervousSystem* s_nervousSystem = nullptr;
 std::vector<std::thread> s_threads;
 std::atomic<bool> s_isSimulationRunning = false;
@@ -67,6 +73,11 @@ void NervousSystem::NextTick(uint64_t timeOfTheUniverse)
 	{
 		if (timeOfTheUniverse > s_time)
 		{
+			if (0 < m_reinforcementLevel)
+			{
+				m_reinforcementLevelLast = m_reinforcementLevel;
+				--m_reinforcementLevel;
+			}
 			s_waitThreadsCount = s_threads.size();
 			++s_time;
 		}

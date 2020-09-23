@@ -31,5 +31,9 @@ public:
 	void PhotonReceived(uint8_t m_posX, uint8_t m_posY, PPh::EtherColor m_color);
 
 private:
+	int32_t GetReinforcementLevel() const;
+
+	int32_t m_reinforcementLevel = 30000;
+	int32_t m_reinforcementLevelLast = 30000;
 };
 
