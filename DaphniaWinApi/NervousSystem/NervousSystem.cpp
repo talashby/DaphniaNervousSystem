@@ -17,6 +17,19 @@ std::atomic<bool> s_isSimulationRunning = false;
 std::atomic<uint64_t> s_time = 0; // absolute universe time
 std::atomic<int32_t> s_waitThreadsCount = 0; // thread synchronization variable
 
+struct SensoryNeuron
+{
+	uint8_t m_dendrite[2]; // 0-254 - excitation 255 - connection lost
+	uint8_t m_axon[2]; // 0-254 - excitation 255 - connection lost
+};
+
+struct MotorNeuron
+{
+	uint8_t m_dendrite[2]; // 0-254 - excitation 255 - connection lost
+	uint8_t m_axon[2]; // 0-254 - excitation 255 - connection lost
+	uint64_t m_lastExcitationTime = 0;
+};
+
 //std::array s_eyeNetwork[]
 
 void NervousSystemThread(int32_t threadNum);

@@ -3,7 +3,7 @@
 
 #include "ParallelPhysics/PPhHelpers.h"
 
-class Neuron
+/*class Neuron
 {
 public:
 	Neuron() = default;
@@ -13,7 +13,7 @@ public:
 class SimpleAdder : public Neuron
 {
 	SimpleAdder() = default;
-};
+};*/
 
 class NervousSystem
 {
