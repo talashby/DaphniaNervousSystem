@@ -6,6 +6,7 @@
 #include <assert.h>
 #include "ParallelPhysics/ServerProtocol.h"
 #include "ParallelPhysics/ObserverClient.h"
+#include <algorithm>
 
 // constants
 
@@ -25,12 +26,15 @@ static std::atomic<uint64_t> s_time = 0; // absolute universe time
 static std::atomic<int32_t> s_waitThreadsCount = 0; // thread synchronization variable
 
 class Neuron* GetNeuronInterface(uint32_t neuronId);
+uint32_t GetNeuronIndex(Neuron *neuron);
 
 class Neuron
 {
 public:
 	Neuron() = default;
 	virtual ~Neuron() = default;
+
+	virtual void Tick() {}
 
 	virtual bool IsActive()
 	{
@@ -79,10 +83,38 @@ public:
 	virtual ~MotorNeuron() = default;
 	constexpr static uint8_t GetTypeStatic() { return static_cast<uint8_t>(NeuronTypes::MotorNeuron); }
 	uint8_t GetType() override { return GetTypeStatic(); }
+	void Tick() override
+	{
+		int isTimeOdd = s_time % 2;
+		m_excitation = m_excitation + m_dendrite[isTimeOdd];
+		m_excitation = std::min(m_excitation, (uint16_t)254);
+		m_axon[isTimeOdd] = static_cast<uint8_t>(m_excitation);
+		bool isActive = false;
+		if (m_excitation)
+		{
+			--m_excitation;
+			isActive = true;
+		}
+
+		uint32_t index = GetNeuronIndex(this);
+		switch (index)
+		{
+		case 0:
+			PPh::ObserverClient::Instance()->SetIsForward(isActive);
+			break;
+		case 1:
+			PPh::ObserverClient::Instance()->SetIsLeft(isActive);
+			break;
+		case 2:
+			PPh::ObserverClient::Instance()->SetIsRight(isActive);
+			break;
+		}
+	}
 
 private:
 	uint8_t m_dendrite[2]; // 0-254 - excitation 255 - connection lost
 	uint8_t m_axon[2]; // 0-254 - excitation 255 - connection lost
+	uint16_t m_excitation;
 	uint64_t m_lastExcitationTime;
 };
 
@@ -98,7 +130,7 @@ private:
 	uint32_t m_dendrite; // read corresponding axon
 	uint16_t m_excitation; // max: ExcitationAccumulationTime * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000 quantum of time
 	uint16_t m_periodWithoutExcitation; // quantum of time
-	void Tick()
+	void Tick() override
 	{
 		Neuron *neuron = GetNeuronInterface(m_dendrite);
 		if (neuron->IsActive())
@@ -135,10 +167,23 @@ private:
 	uint16_t m_excitation[ConditionedReflexDendritesNum]; // max: ExcitationAccumulationTime * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000 quantum of time
 };
 
-std::array<std::array<SensoryNeuron, PPh::GetObserverEyeSize()>, PPh::GetObserverEyeSize()> s_eyeNetwork;
+constexpr static int EYE_NEURONS_NUM =  PPh::GetObserverEyeSize()*PPh::GetObserverEyeSize();
+static std::array<std::array<SensoryNeuron, PPh::GetObserverEyeSize()>, PPh::GetObserverEyeSize()> s_eyeNetwork;
 static std::array<MotorNeuron, 3> s_motorNetwork; // 0 - forward, 1 - left, 2 - right
-static std::array<ExcitationAccumulatorNeuron, s_eyeNetwork[0].size()*s_eyeNetwork.size()+ s_motorNetwork.size()> s_excitationAccumulatorNetwork;
+static std::array<ExcitationAccumulatorNeuron, EYE_NEURONS_NUM + s_motorNetwork.size()> s_excitationAccumulatorNetwork;
 static std::array<ConditionedReflexNeuron, ConditionedReflexLimit> s_conditionedReflexNetwork;
+struct NetworksMetadata
+{
+	Neuron *m_start;
+	Neuron *m_end;
+	uint32_t m_size;
+};
+static std::array s_networksMetadata{
+	NetworksMetadata{&s_eyeNetwork[0][0], &s_eyeNetwork[0][0]+EYE_NEURONS_NUM, sizeof(SensoryNeuron)},
+	NetworksMetadata{&s_motorNetwork[0], &s_motorNetwork[0]+s_motorNetwork.size(), sizeof(MotorNeuron)},
+	NetworksMetadata{&s_excitationAccumulatorNetwork[0], &s_excitationAccumulatorNetwork[0] + s_excitationAccumulatorNetwork.size(), sizeof(ExcitationAccumulatorNeuron)},
+	NetworksMetadata{&s_conditionedReflexNetwork[0], &s_conditionedReflexNetwork[0] + s_conditionedReflexNetwork.size(), sizeof(ConditionedReflexNeuron)}
+};
 
 class Neuron* GetNeuronInterface(uint32_t neuronId)
 {
@@ -171,6 +216,18 @@ class Neuron* GetNeuronInterface(uint32_t neuronId)
 	}
 	assert(((int32_t*)neuron)[0] > 0); // virtual table should exist
 	return neuron;
+}
+
+uint32_t GetNeuronIndex(Neuron *neuron)
+{
+	for (auto &metadata : s_networksMetadata)
+	{
+		if (neuron >= metadata.m_start && neuron < metadata.m_end)
+		{
+			return (neuron - metadata.m_start) / metadata.m_size;
+		}
+	}
+	return 0;
 }
 
 void NervousSystemThread(int32_t threadNum);
