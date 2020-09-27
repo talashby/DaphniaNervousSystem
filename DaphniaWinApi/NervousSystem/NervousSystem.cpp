@@ -135,10 +135,10 @@ private:
 	uint16_t m_excitation[ConditionedReflexDendritesNum]; // max: ExcitationAccumulationTime * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000 quantum of time
 };
 
-static std::array<std::array<SensoryNeuron, PPh::GetObserverEyeSize()>, PPh::GetObserverEyeSize()> s_eyeNetwork = { SensoryNeuron() };
-static std::array<MotorNeuron, 3> s_motorNetwork = { MotorNeuron() }; // 0 - forward, 1 - left, 2 - right
-static std::array<ExcitationAccumulatorNeuron, s_eyeNetwork[0].size()*s_eyeNetwork.size()+ s_motorNetwork.size()> s_excitationAccumulatorNetwork = { ExcitationAccumulatorNeuron() };
-static std::array<ConditionedReflexNeuron, ConditionedReflexLimit> s_conditionedReflexNetwork = { ConditionedReflexNeuron() };
+std::array<std::array<SensoryNeuron, PPh::GetObserverEyeSize()>, PPh::GetObserverEyeSize()> s_eyeNetwork;
+static std::array<MotorNeuron, 3> s_motorNetwork; // 0 - forward, 1 - left, 2 - right
+static std::array<ExcitationAccumulatorNeuron, s_eyeNetwork[0].size()*s_eyeNetwork.size()+ s_motorNetwork.size()> s_excitationAccumulatorNetwork;
+static std::array<ConditionedReflexNeuron, ConditionedReflexLimit> s_conditionedReflexNetwork;
 
 class Neuron* GetNeuronInterface(uint32_t neuronId)
 {
