@@ -127,6 +127,10 @@ public:
 	virtual ~ExcitationAccumulatorNeuron() = default;
 	constexpr static uint8_t GetTypeStatic() { return static_cast<uint8_t>(NeuronTypes::ExcitationAccumulatorNeuron); }
 	uint8_t GetType() override { return GetTypeStatic(); }
+	void Init(uint32_t dendrite)
+	{
+		m_dendrite = dendrite;
+	}
 
 private:
 	uint32_t m_dendrite; // read corresponding axon
@@ -176,17 +180,17 @@ static std::array<ExcitationAccumulatorNeuron, EYE_NEURONS_NUM + s_motorNetwork.
 static std::array<ConditionedReflexNeuron, CONDITIONED_REFLEX_LIMIT> s_conditionedReflexNetwork;
 struct NetworksMetadata
 {
-	uint32_t m_firstNeuronNum;
-	uint32_t m_lastNeuronNum;
-	Neuron *m_start;
-	Neuron *m_end;
+	uint32_t m_beginNeuronNum;
+	uint32_t m_endNeuronNum; // last+1
+	uint64_t m_begin;
+	uint64_t m_end;
 	uint32_t m_size;
 };
 static std::array s_networksMetadata{
-	NetworksMetadata{0, 0, &s_eyeNetwork[0][0], &s_eyeNetwork[0][0]+EYE_NEURONS_NUM, sizeof(SensoryNeuron)},
-	NetworksMetadata{0, 0, &s_motorNetwork[0], &s_motorNetwork[0]+s_motorNetwork.size(), sizeof(MotorNeuron)},
-	NetworksMetadata{0, 0, &s_excitationAccumulatorNetwork[0], &s_excitationAccumulatorNetwork[0] + s_excitationAccumulatorNetwork.size(), sizeof(ExcitationAccumulatorNeuron)},
-	NetworksMetadata{0, 0, &s_conditionedReflexNetwork[0], &s_conditionedReflexNetwork[0] + s_conditionedReflexNetwork.size(), sizeof(ConditionedReflexNeuron)}
+	NetworksMetadata{0, 0, (uint64_t)(&s_eyeNetwork[0][0]), (uint64_t)(&s_eyeNetwork[0][0]+EYE_NEURONS_NUM), sizeof(SensoryNeuron)},
+	NetworksMetadata{0, 0, (uint64_t)&s_motorNetwork[0], (uint64_t)(&s_motorNetwork[0]+s_motorNetwork.size()), sizeof(MotorNeuron)},
+	NetworksMetadata{0, 0, (uint64_t)&s_excitationAccumulatorNetwork[0], (uint64_t)(&s_excitationAccumulatorNetwork[0] + s_excitationAccumulatorNetwork.size()), sizeof(ExcitationAccumulatorNeuron)},
+	NetworksMetadata{0, 0, (uint64_t)&s_conditionedReflexNetwork[0], (uint64_t)(&s_conditionedReflexNetwork[0] + s_conditionedReflexNetwork.size()), sizeof(ConditionedReflexNeuron)}
 };
 static uint32_t s_neuronsNum = EYE_NEURONS_NUM + s_motorNetwork.size() + s_excitationAccumulatorNetwork.size() + s_conditionedReflexNetwork.size();
 
@@ -194,7 +198,7 @@ class Neuron* GetNeuronInterface(uint32_t neuronId)
 {
 	Neuron* neuron = nullptr;
 	uint8_t neuronType = (neuronId >> 24) & 0xff;
-	uint16_t neuronIndex = neuronId & 0xffff;
+	uint16_t neuronIndex = neuronId & 0xffffff;
 	switch (neuronType)
 	{
 	case SensoryNeuron::GetTypeStatic():
@@ -225,18 +229,19 @@ class Neuron* GetNeuronInterface(uint32_t neuronId)
 
 uint32_t GetNeuronIndex(Neuron *neuron)
 {
+	uint64_t neuronAddr = reinterpret_cast<uint64_t>(neuron);
 	for (auto &metadata : s_networksMetadata)
 	{
-		if (neuron >= metadata.m_start && neuron < metadata.m_end)
+		if (neuronAddr >= metadata.m_begin && neuronAddr < metadata.m_end)
 		{
-			return (neuron - metadata.m_start) / metadata.m_size;
+			return (uint32_t)((neuronAddr - metadata.m_begin) / metadata.m_size);
 		}
 	}
 	assert(false);
 	return 0;
 }
 
-void NervousSystemThread(int32_t threadNum);
+void NervousSystemThread(uint32_t threadNum);
 
 void NervousSystem::Init()
 {
@@ -249,9 +254,9 @@ void NervousSystem::Init()
 	uint32_t firstNeuronNum = 0;
 	for (auto &el : s_networksMetadata)
 	{
-		el.m_firstNeuronNum = firstNeuronNum;
-		el.m_lastNeuronNum = firstNeuronNum + (reinterpret_cast<uint64_t>(el.m_end) - reinterpret_cast<uint64_t>(el.m_start)) / el.m_size;
-		firstNeuronNum = el.m_lastNeuronNum;
+		el.m_beginNeuronNum = firstNeuronNum;
+		el.m_endNeuronNum = firstNeuronNum + (uint32_t)((el.m_end - el.m_begin) / el.m_size);
+		firstNeuronNum = el.m_endNeuronNum;
 	}
 	
 
@@ -271,6 +276,24 @@ void NervousSystem::Init()
 		posBegin = posEnd;
 	}
 	 
+	uint32_t excitationAccumulatorNetworkIndex = 0;
+	for (uint32_t ii=0; ii<EYE_NEURONS_NUM; ++ii)
+	{
+		uint32_t id = ii;
+		uint32_t type = SensoryNeuron::GetTypeStatic();
+		type = type << 24;
+		id |= type;
+		s_excitationAccumulatorNetwork[excitationAccumulatorNetworkIndex++].Init(id);
+	}
+	for (uint32_t ii = 0; ii < s_motorNetwork.size(); ++ii)
+	{
+		uint32_t id = ii;
+		uint32_t type = MotorNeuron::GetTypeStatic();
+		type = type << 24;
+		id |= type;
+		s_excitationAccumulatorNetwork[excitationAccumulatorNetworkIndex++].Init(id);
+	}
+
 	s_nervousSystem = new NervousSystem();
 }
 
@@ -330,12 +353,47 @@ void NervousSystem::PhotonReceived(uint8_t m_posX, uint8_t m_posY, PPh::EtherCol
 {
 }
 
-void NervousSystemThread(int32_t threadNum)
+void NervousSystemThread(uint32_t threadNum)
 {
+	assert(s_threadNeurons.size() > threadNum);
+	uint32_t beginNetworkMetadata = 0;
+	for (const auto &metadata : s_networksMetadata)
+	{
+		if (s_threadNeurons[threadNum].first >= metadata.m_beginNeuronNum && s_threadNeurons[threadNum].first < metadata.m_endNeuronNum)
+		{
+			break;
+		}
+		++beginNetworkMetadata;
+	}
+	uint32_t endNetworkMetadata = 0;
+	for (const auto &metadata : s_networksMetadata)
+	{
+		if (s_threadNeurons[threadNum].second >= metadata.m_beginNeuronNum && s_threadNeurons[threadNum].second < metadata.m_endNeuronNum)
+		{
+			++endNetworkMetadata;
+			break;
+		}
+		++endNetworkMetadata;
+	}
+	assert(beginNetworkMetadata <= endNetworkMetadata);
+	uint32_t beginLocalNeuronNum = s_threadNeurons[threadNum].first;
+	uint32_t endLocalNeuronNum = s_threadNeurons[threadNum].second;
 	while (s_isSimulationRunning)
 	{
 		int32_t isTimeOdd = s_time % 2;
-		// do something
+
+		for (uint32_t ii = beginNetworkMetadata; ii < endNetworkMetadata; ++ii)
+		{
+			if (ii != beginNetworkMetadata)
+			{
+				beginLocalNeuronNum = s_networksMetadata[ii].m_beginNeuronNum;
+			}
+			for (uint32_t jj = beginLocalNeuronNum; jj < endLocalNeuronNum && jj < s_networksMetadata[ii].m_endNeuronNum; ++jj)
+			{
+				Neuron *neuron = reinterpret_cast<Neuron*>(s_networksMetadata[ii].m_begin + (jj - beginLocalNeuronNum) * s_networksMetadata[ii].m_size);
+				neuron->Tick();
+			}
+		}
 		--s_waitThreadsCount;
 		while (s_time % 2 == isTimeOdd)
 		{
