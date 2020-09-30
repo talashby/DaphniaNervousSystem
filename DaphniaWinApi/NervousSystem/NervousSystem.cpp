@@ -17,6 +17,8 @@ constexpr uint16_t EXCITATION_ACCUMULATION_LIMIT = EXCITATION_ACCUMULATION_TIME 
 constexpr int32_t CONDITIONED_REFLEX_DENDRITES_NUM = 20; // units
 constexpr uint32_t CONDITIONED_REFLEX_LIMIT = 100000; // units
 constexpr uint16_t SENSORY_NEURON_REINFORCEMENT_LIMIT = 65535; // units
+constexpr uint32_t MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME = 3000 * // ms
+					PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000; // quantum of time, random +-33%
 
 //
 
@@ -36,6 +38,7 @@ public:
 	Neuron() = default;
 	virtual ~Neuron() = default;
 
+	virtual void Init() {}
 	virtual void Tick() {}
 
 	virtual bool IsActive()
@@ -85,6 +88,13 @@ public:
 	virtual ~MotorNeuron() = default;
 	constexpr static uint8_t GetTypeStatic() { return static_cast<uint8_t>(NeuronTypes::MotorNeuron); }
 	uint8_t GetType() override { return GetTypeStatic(); }
+	void Init() override 
+	{
+		assert(s_time); // server should send time already
+		m_spontaneusActivityTime = MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME * (PPh::Rand32(67) + 66) / 100;
+		m_lastExcitationTime = s_time;
+	}
+
 	void Tick() override
 	{
 		int isTimeOdd = s_time % 2;
@@ -96,6 +106,12 @@ public:
 		{
 			--m_excitation;
 			isActive = true;
+			m_lastExcitationTime = s_time;
+		}
+		else if (s_time - m_lastExcitationTime  > m_spontaneusActivityTime)
+		{
+			m_excitation = 254;
+			m_spontaneusActivityTime = MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME * (PPh::Rand32(67) + 66) / 100;
 		}
 
 		uint32_t index = GetNeuronIndex(this);
@@ -118,6 +134,7 @@ private:
 	uint8_t m_axon[2]; // 0-254 - excitation 255 - connection lost
 	uint16_t m_excitation;
 	uint64_t m_lastExcitationTime;
+	uint32_t m_spontaneusActivityTime;
 };
 
 class ExcitationAccumulatorNeuron : public Neuron
@@ -306,6 +323,14 @@ void NervousSystem::StartSimulation(uint64_t timeOfTheUniverse)
 {
 	s_isSimulationRunning = true;
 	s_time = timeOfTheUniverse;
+	for (const auto &metadata : s_networksMetadata)
+	{
+		for (uint32_t jj = metadata.m_beginNeuronNum; jj < metadata.m_endNeuronNum; ++jj)
+		{
+			Neuron *neuron = reinterpret_cast<Neuron*>(metadata.m_begin + (jj - metadata.m_beginNeuronNum) * metadata.m_size);
+			neuron->Init();
+		}
+	}
 	s_waitThreadsCount = s_threads.size();
 	for (uint16_t ii = 0; ii < s_threads.size(); ++ii)
 	{
