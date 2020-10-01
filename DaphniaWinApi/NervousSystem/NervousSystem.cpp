@@ -15,7 +15,7 @@ constexpr int32_t REINFORCEMENT_FOR_CONDITIONED_REFLEX = 10; // units
 constexpr int32_t EXCITATION_ACCUMULATION_TIME = 100; // ms
 constexpr uint16_t EXCITATION_ACCUMULATION_LIMIT = EXCITATION_ACCUMULATION_TIME * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000; // units
 constexpr int32_t CONDITIONED_REFLEX_DENDRITES_NUM = 20; // units
-constexpr uint32_t CONDITIONED_REFLEX_LIMIT = 100000; // units
+constexpr uint32_t CONDITIONED_REFLEX_LIMIT = 10000; // units
 constexpr uint16_t SENSORY_NEURON_REINFORCEMENT_LIMIT = 65535; // units
 constexpr uint32_t MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME = 3000 * // ms
 					PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000; // quantum of time, random +-33%
@@ -23,11 +23,11 @@ constexpr uint32_t MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME = 3000 * // ms
 //
 
 static NervousSystem* s_nervousSystem = nullptr;
-static std::array<std::thread, 1> s_threads;
+static std::array<std::thread, 3> s_threads;
 static std::array<std::pair<uint32_t, uint32_t>, s_threads.size()> s_threadNeurons; // [first neuron; last neuron)
 static std::atomic<bool> s_isSimulationRunning = false;
 static std::atomic<uint64_t> s_time = 0; // absolute universe time
-static std::atomic<int32_t> s_waitThreadsCount = 0; // thread synchronization variable
+static std::atomic<uint32_t> s_waitThreadsCount = 0; // thread synchronization variable
 
 class Neuron* GetNeuronInterface(uint32_t neuronId);
 uint32_t GetNeuronIndex(Neuron *neuron);
@@ -209,7 +209,7 @@ static std::array s_networksMetadata{
 	NetworksMetadata{0, 0, (uint64_t)&s_excitationAccumulatorNetwork[0], (uint64_t)(&s_excitationAccumulatorNetwork[0] + s_excitationAccumulatorNetwork.size()), sizeof(ExcitationAccumulatorNeuron)},
 	NetworksMetadata{0, 0, (uint64_t)&s_conditionedReflexNetwork[0], (uint64_t)(&s_conditionedReflexNetwork[0] + s_conditionedReflexNetwork.size()), sizeof(ConditionedReflexNeuron)}
 };
-static uint32_t s_neuronsNum = EYE_NEURONS_NUM + s_motorNetwork.size() + s_excitationAccumulatorNetwork.size() + s_conditionedReflexNetwork.size();
+static uint32_t s_neuronsNum = EYE_NEURONS_NUM + (uint32_t)s_motorNetwork.size() + (uint32_t)s_excitationAccumulatorNetwork.size() + (uint32_t)s_conditionedReflexNetwork.size();
 
 class Neuron* GetNeuronInterface(uint32_t neuronId)
 {
@@ -240,7 +240,7 @@ class Neuron* GetNeuronInterface(uint32_t neuronId)
 		neuron = &s_conditionedReflexNetwork[neuronIndex];
 		break;
 	}
-	assert(((int32_t*)neuron)[0] > 0); // virtual table should exist
+	assert(((uint64_t*)neuron)[0] > 0); // virtual table should exist
 	return neuron;
 }
 
@@ -277,8 +277,8 @@ void NervousSystem::Init()
 	}
 	
 
-	uint32_t step = s_neuronsNum / s_threads.size();
-	uint32_t remain = s_neuronsNum - step * s_threads.size();
+	uint32_t step = s_neuronsNum / (uint32_t)s_threads.size();
+	uint32_t remain = s_neuronsNum - step * (uint32_t)s_threads.size();
 	uint32_t posBegin = 0;
 	for (std::pair<uint32_t, uint32_t> &pair : s_threadNeurons)
 	{
@@ -331,7 +331,7 @@ void NervousSystem::StartSimulation(uint64_t timeOfTheUniverse)
 			neuron->Init();
 		}
 	}
-	s_waitThreadsCount = s_threads.size();
+	s_waitThreadsCount = (uint32_t)s_threads.size();
 	for (uint16_t ii = 0; ii < s_threads.size(); ++ii)
 	{
 		s_threads[ii] = std::thread(NervousSystemThread, ii);
@@ -342,7 +342,6 @@ void NervousSystem::StopSimulation()
 {
 	if (!s_isSimulationRunning)
 	{
-		assert(false);
 		return;
 	}
 	s_isSimulationRunning = false;
@@ -368,7 +367,7 @@ void NervousSystem::NextTick(uint64_t timeOfTheUniverse)
 				m_reinforcementLevelLast = m_reinforcementLevel;
 				--m_reinforcementLevel;
 			}
-			s_waitThreadsCount = s_threads.size();
+			s_waitThreadsCount = (uint32_t)s_threads.size();
 			++s_time;
 		}
 	}
@@ -420,7 +419,7 @@ void NervousSystemThread(uint32_t threadNum)
 			}
 		}
 		--s_waitThreadsCount;
-		while (s_time % 2 == isTimeOdd)
+		while (s_time % 2 == isTimeOdd && s_isSimulationRunning)
 		{
 		}
 	}
