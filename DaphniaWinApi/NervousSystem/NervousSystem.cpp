@@ -17,9 +17,10 @@ constexpr uint16_t EXCITATION_ACCUMULATION_LIMIT = EXCITATION_ACCUMULATION_TIME 
 constexpr int32_t CONDITIONED_REFLEX_DENDRITES_NUM = 20; // units
 constexpr uint32_t CONDITIONED_REFLEX_LIMIT = 10000; // units
 constexpr uint16_t SENSORY_NEURON_REINFORCEMENT_LIMIT = 65535; // units
-constexpr uint32_t MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME = 3000 * // ms
-					PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000; // quantum of time, random +-33%
-
+constexpr uint32_t MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME = 10000 * // ms
+					PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000; // quantum of time
+constexpr uint32_t MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME_DURATION = 500 * // ms
+					PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000; // quantum of time
 //
 
 static NervousSystem* s_nervousSystem = nullptr;
@@ -91,7 +92,7 @@ public:
 	void Init() override 
 	{
 		assert(s_time); // server should send time already
-		m_spontaneusActivityTime = MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME * (PPh::Rand32(67) + 66) / 100;
+		m_spontaneusActivityTimeStart = MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME * (PPh::Rand32(100) + 50) / 100;
 		m_lastExcitationTime = s_time;
 	}
 
@@ -108,17 +109,25 @@ public:
 			isActive = true;
 			m_lastExcitationTime = s_time;
 		}
-		else if (s_time - m_lastExcitationTime  > m_spontaneusActivityTime)
+		if (!m_excitation)
 		{
-			m_excitation = 254;
-			m_spontaneusActivityTime = MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME * (PPh::Rand32(67) + 66) / 100;
+			if (s_time - m_lastExcitationTime > m_spontaneusActivityTimeStart)
+			{
+				++m_excitation;
+				m_spontaneusActivityTimeFinishAbs = s_time + MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME_DURATION;
+				m_spontaneusActivityTimeStart = MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME * (PPh::Rand32(67) + 66) / 100;
+			}
+			else if (s_time < m_spontaneusActivityTimeFinishAbs)
+			{
+				++m_excitation;
+			}
 		}
 
 		uint32_t index = GetNeuronIndex(this);
 		switch (index)
 		{
 		case 0:
-			PPh::ObserverClient::Instance()->SetIsForward(isActive);
+			//PPh::ObserverClient::Instance()->SetIsForward(isActive);
 			break;
 		case 1:
 			PPh::ObserverClient::Instance()->SetIsLeft(isActive);
@@ -134,7 +143,8 @@ private:
 	uint8_t m_axon[2]; // 0-254 - excitation 255 - connection lost
 	uint16_t m_excitation;
 	uint64_t m_lastExcitationTime;
-	uint32_t m_spontaneusActivityTime;
+	uint32_t m_spontaneusActivityTimeStart;
+	uint64_t m_spontaneusActivityTimeFinishAbs;
 };
 
 class ExcitationAccumulatorNeuron : public Neuron
