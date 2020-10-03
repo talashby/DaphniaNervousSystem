@@ -26,6 +26,8 @@ public:
 	void StartSimulation(uint64_t timeOfTheUniverse);
 	void StopSimulation();
 	bool IsSimulationRunning() const;
+	void GetStatisticsParams(int32_t &reinforcementLevelStat) const;
+	uint64_t GetTime() const;
 	void NextTick(uint64_t timeOfTheUniverse);
 
 	void PhotonReceived(uint8_t m_posX, uint8_t m_posY, PPh::EtherColor m_color);
@@ -35,5 +37,8 @@ private:
 
 	int32_t m_reinforcementLevel = 30000;
 	int32_t m_reinforcementLevelLast = 30000;
+
+	// statistics
+	int32_t m_reinforcementLevelStat = 0;
 };
 

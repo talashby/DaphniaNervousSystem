@@ -172,25 +172,25 @@ void ObserverClient::PPhTick()
 		if (m_isLeft)
 		{
 			MsgRotateLeft msgMove;
-			msgMove.m_value = 4;
+			msgMove.m_value = 1;
 			SendServerMsg(msgMove, sizeof(msgMove));
 		}
 		if (m_isRight)
 		{
 			MsgRotateRight msgMove;
-			msgMove.m_value = 4;
+			msgMove.m_value = 1;
 			SendServerMsg(msgMove, sizeof(msgMove));
 		}
 		if (m_isUp)
 		{
 			MsgRotateDown msgMove;
-			msgMove.m_value = 4;
+			msgMove.m_value = 1;
 			SendServerMsg(msgMove, sizeof(msgMove));
 		}
 		if (m_isDown)
 		{
 			MsgRotateUp msgMove;
-			msgMove.m_value = 4;
+			msgMove.m_value = 1;
 			SendServerMsg(msgMove, sizeof(msgMove));
 		}
 		if (m_isForward)
@@ -249,6 +249,8 @@ void ObserverClient::PPhTick()
 				m_universeThreadsNum = msgRcv->m_universeThreadsCount;
 				m_clientServerPerformanceRatio = msgRcv->m_clientServerPerformanceRatio;
 				m_serverClientPerformanceRatio = msgRcv->m_serverClientPerformanceRatio;
+				m_serverTimeStat = timeOfTheUniverse;
+				m_clientTimeStat = NervousSystem::Instance()->GetTime(); // it is correct because client s_time change from this thread
 			}
 			else
 			{
@@ -362,7 +364,7 @@ VectorInt32Math ObserverClient::GrabEatenCrumbPos()
 void ObserverClient::GetStatisticsParams(uint32_t &outQuantumOfTimePerSecond, uint32_t &outUniverseThreadsNum,
 	uint32_t &outTickTimeMusAverageUniverseThreadsMin, uint32_t &outTickTimeMusAverageUniverseThreadsMax,
 	uint32_t &outTickTimeMusAverageObserverThread, uint64_t &outClientServerPerformanceRatio,
-	uint64_t &outServerClientPerformanceRatio)
+	uint64_t &outServerClientPerformanceRatio, uint64_t &outServerTime, uint64_t &outClientTime) const
 {
 	std::lock_guard<std::mutex> guard(s_serverStatisticsMutex);
 	outQuantumOfTimePerSecond = m_quantumOfTimePerSecond;
@@ -372,6 +374,8 @@ void ObserverClient::GetStatisticsParams(uint32_t &outQuantumOfTimePerSecond, ui
 	outTickTimeMusAverageObserverThread = m_TickTimeMusAverageObserverThread;
 	outClientServerPerformanceRatio = m_clientServerPerformanceRatio;
 	outServerClientPerformanceRatio = m_serverClientPerformanceRatio;
+	outServerTime = m_serverTimeStat;
+	outClientTime = m_clientTimeStat;
 }
 
 uint32_t ObserverClient::GetServerProtocolVersion() const

@@ -59,7 +59,9 @@ public:
 		uint32_t &outTickTimeMusAverageUniverseThreadsMax, // average tick time in microseconds
 		uint32_t &outTickTimeMusAverageObserverThread, // average tick time in microseconds
 		uint64_t &outClientServerPerformanceRatio,
-		uint64_t &outServerClientPerformanceRatio);
+		uint64_t &outServerClientPerformanceRatio,
+		uint64_t &outServerTime,
+		uint64_t &outClientTime) const;
 
 	uint32_t GetServerProtocolVersion() const;
 
@@ -115,6 +117,8 @@ private:
 	uint32_t m_TickTimeMusAverageObserverThread = 0;
 	uint64_t m_clientServerPerformanceRatio = 0;
 	uint64_t m_serverClientPerformanceRatio = 0;
+	uint64_t m_serverTimeStat = 0;
+	uint64_t m_clientTimeStat = 0;
 
 	// motor neurons
 	bool m_isLeft=false, m_isRight=false, m_isUp=false, m_isDown=false, m_isForward=false, m_isBackward=false;

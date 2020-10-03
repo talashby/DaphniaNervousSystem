@@ -8,6 +8,7 @@
 #include "ParallelPhysics/ObserverClient.h"
 #include <algorithm>
 #include <utility>
+#include <mutex>
 
 // constants
 
@@ -29,6 +30,8 @@ static std::array<std::pair<uint32_t, uint32_t>, s_threads.size()> s_threadNeuro
 static std::atomic<bool> s_isSimulationRunning = false;
 static std::atomic<uint64_t> s_time = 0; // absolute universe time
 static std::atomic<uint32_t> s_waitThreadsCount = 0; // thread synchronization variable
+
+static std::mutex s_statisticsMutex;
 
 class Neuron* GetNeuronInterface(uint32_t neuronId);
 uint32_t GetNeuronIndex(Neuron *neuron);
@@ -366,6 +369,17 @@ bool NervousSystem::IsSimulationRunning() const
 	return s_isSimulationRunning;
 }
 
+void NervousSystem::GetStatisticsParams(int32_t &reinforcementLevelStat) const
+{
+	std::lock_guard<std::mutex> guard(s_statisticsMutex);
+	reinforcementLevelStat = m_reinforcementLevelStat;
+}
+
+uint64_t NervousSystem::GetTime() const
+{
+	return s_time;
+}
+
 void NervousSystem::NextTick(uint64_t timeOfTheUniverse)
 {
 	if (!s_waitThreadsCount) // Is Tick Finished
@@ -376,6 +390,8 @@ void NervousSystem::NextTick(uint64_t timeOfTheUniverse)
 			{
 				m_reinforcementLevelLast = m_reinforcementLevel;
 				--m_reinforcementLevel;
+				std::lock_guard<std::mutex> guard(s_statisticsMutex);
+				m_reinforcementLevelStat = m_reinforcementLevel;
 			}
 			s_waitThreadsCount = (uint32_t)s_threads.size();
 			++s_time;

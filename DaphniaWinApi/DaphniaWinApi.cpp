@@ -293,7 +293,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			SelectObject(hdc, GetStockObject(DEFAULT_GUI_FONT));
 			SetBkMode(hdc, TRANSPARENT);
 			SetTextColor(hdc, RGB(255, 255, 255));
-			std::string strOut = "STATISTICS:";
+			std::string strOut = "SERVER STATISTICS:";
 			{
 				uint32_t outQuantumOfTimePerSecond;
 				uint32_t outUniverseThreadsNum;
@@ -302,9 +302,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				uint32_t outTickTimeMusAverageObserverThread;
 				uint64_t outClientServerPerformanceRatio;
 				uint64_t outServerClientPerformanceRatio;
+				uint64_t outServerTime;
+				uint64_t outClientTime;
 				PPh::ObserverClient::Instance()->GetStatisticsParams(outQuantumOfTimePerSecond, outUniverseThreadsNum,
 					outTickTimeMusAverageUniverseThreadsMin, outTickTimeMusAverageUniverseThreadsMax,
-					outTickTimeMusAverageObserverThread, outClientServerPerformanceRatio, outServerClientPerformanceRatio);
+					outTickTimeMusAverageObserverThread, outClientServerPerformanceRatio, outServerClientPerformanceRatio,
+					outServerTime, outClientTime);
 				strOut += std::string("\nFPS (quantum of time per second): ") + std::to_string(outQuantumOfTimePerSecond);
 				strOut += "\nUniverse threads count: " + std::to_string(outUniverseThreadsNum);
 				if (outUniverseThreadsNum)
@@ -319,6 +322,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					std::to_string(outPosition.m_posZ) + ")";
 				strOut += std::string("\nLattitude: ") + std::to_string(outLatitude);
 				strOut += std::string("\nLongitude: ") + std::to_string(outLongitude);
+				//////////////////////////////////////////////////////////////////////////
+				strOut += std::string("\n\nCLIENT STATISTICS:");
+				strOut += "\nServer time: " + std::to_string(outServerTime);
+				strOut += "\nClient time: " + std::to_string(outClientTime);
+
+				int32_t reinforcementLevelStat;
+				NervousSystem::Instance()->GetStatisticsParams(reinforcementLevelStat);
+				strOut += "\nReinforcement Level: " + std::to_string(reinforcementLevelStat);
 			}
 			DrawText(hdc, strOut.c_str(), (int)strOut.length(), &rc, DT_LEFT);
 		}
