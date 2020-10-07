@@ -328,8 +328,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				strOut += "\nClient time: " + std::to_string(outClientTime);
 
 				int32_t reinforcementLevelStat;
-				NervousSystem::Instance()->GetStatisticsParams(reinforcementLevelStat);
+				int32_t reinforcementsCountStat;
+				NervousSystem::Instance()->GetStatisticsParams(reinforcementLevelStat, reinforcementsCountStat);
 				strOut += "\nReinforcement Level: " + std::to_string(reinforcementLevelStat);
+				strOut += "\nReinforcemens Counter: " + std::to_string(reinforcementsCountStat);
 			}
 			DrawText(hdc, strOut.c_str(), (int)strOut.length(), &rc, DT_LEFT);
 		}

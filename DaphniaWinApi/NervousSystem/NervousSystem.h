@@ -26,7 +26,7 @@ public:
 	void StartSimulation(uint64_t timeOfTheUniverse);
 	void StopSimulation();
 	bool IsSimulationRunning() const;
-	void GetStatisticsParams(int32_t &reinforcementLevelStat) const;
+	void GetStatisticsParams(int32_t &reinforcementLevelStat, int32_t &reinforcementsCountStat) const;
 	uint64_t GetTime() const;
 	void NextTick(uint64_t timeOfTheUniverse);
 
@@ -40,5 +40,6 @@ private:
 
 	// statistics
 	int32_t m_reinforcementLevelStat = 0;
+	int32_t m_reinforcementsCountStat = 0;
 };
 

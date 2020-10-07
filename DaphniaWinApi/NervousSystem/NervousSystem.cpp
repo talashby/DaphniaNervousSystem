@@ -30,6 +30,7 @@ static std::array<std::pair<uint32_t, uint32_t>, s_threads.size()> s_threadNeuro
 static std::atomic<bool> s_isSimulationRunning = false;
 static std::atomic<uint64_t> s_time = 0; // absolute universe time
 static std::atomic<uint32_t> s_waitThreadsCount = 0; // thread synchronization variable
+static std::atomic<uint32_t> s_reinforcementStorageCurrentTick = 0; // store reinforcements in current tick
 
 static std::mutex s_statisticsMutex;
 
@@ -45,7 +46,7 @@ public:
 	virtual void Init() {}
 	virtual void Tick() {}
 
-	virtual bool IsActive()
+	virtual bool IsActive() const
 	{
 		return false;
 	}
@@ -69,15 +70,27 @@ public:
 	SensoryNeuron() = default;
 	virtual ~SensoryNeuron() = default;
 
-	bool IsActive() override
+	bool IsActive() const override
 	{
-		int isTimeOdd = (s_time + 1) % 2;
-		return m_dendrite[isTimeOdd] > 0;
+		return m_isActive;
 	}
 	constexpr static uint8_t GetTypeStatic() { return static_cast<uint8_t>(NeuronTypes::SensoryNeuron); }
 	uint8_t GetType() override { return GetTypeStatic(); }
 
+	void Tick() override
+	{
+		int isTimeOdd = s_time % 2;
+		if (m_dendrite[isTimeOdd] > 0)
+		{
+			m_isActive = true;
+			m_dendrite[isTimeOdd] = 0;
+			++s_reinforcementStorageCurrentTick;
+		}
+		
+	}
+
 private:
+	bool m_isActive;
 	uint8_t m_dendrite[2]; // 0-254 - excitation 255 - connection lost
 	uint8_t m_axon[2]; // 0-254 - excitation 255 - connection lost
 	bool m_isReinforcementActive[2]; // 
@@ -369,10 +382,11 @@ bool NervousSystem::IsSimulationRunning() const
 	return s_isSimulationRunning;
 }
 
-void NervousSystem::GetStatisticsParams(int32_t &reinforcementLevelStat) const
+void NervousSystem::GetStatisticsParams(int32_t &reinforcementLevelStat, int32_t &reinforcementsCountStat) const
 {
 	std::lock_guard<std::mutex> guard(s_statisticsMutex);
 	reinforcementLevelStat = m_reinforcementLevelStat;
+	reinforcementsCountStat = m_reinforcementsCountStat;
 }
 
 uint64_t NervousSystem::GetTime() const
@@ -386,12 +400,18 @@ void NervousSystem::NextTick(uint64_t timeOfTheUniverse)
 	{
 		if (timeOfTheUniverse > s_time)
 		{
+			m_reinforcementLevelLast = m_reinforcementLevel;
+			m_reinforcementLevel += s_reinforcementStorageCurrentTick;
+			s_reinforcementStorageCurrentTick = 0;
 			if (0 < m_reinforcementLevel)
 			{
-				m_reinforcementLevelLast = m_reinforcementLevel;
 				--m_reinforcementLevel;
 				std::lock_guard<std::mutex> guard(s_statisticsMutex);
 				m_reinforcementLevelStat = m_reinforcementLevel;
+				if (m_reinforcementLevel >= REINFORCEMENT_FOR_CONDITIONED_REFLEX && m_reinforcementLevelLast < REINFORCEMENT_FOR_CONDITIONED_REFLEX)
+				{
+					++m_reinforcementsCountStat;
+				}
 			}
 			s_waitThreadsCount = (uint32_t)s_threads.size();
 			++s_time;
