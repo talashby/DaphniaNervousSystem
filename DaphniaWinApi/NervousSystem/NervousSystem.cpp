@@ -12,12 +12,15 @@
 
 // constants
 
-constexpr int32_t REINFORCEMENT_FOR_CONDITIONED_REFLEX = 10; // units
+constexpr uint32_t SECOND_IN_QOF = PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND;  // quantum of time
+constexpr uint32_t MILLISECOND_IN_QOF = PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000;  // quantum of time
+constexpr int32_t REINFORCEMENT_FOR_CONDITIONED_REFLEX = SECOND_IN_QOF; // units
 constexpr int32_t EXCITATION_ACCUMULATION_TIME = 100; // ms
 constexpr uint16_t EXCITATION_ACCUMULATION_LIMIT = EXCITATION_ACCUMULATION_TIME * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000; // units
 constexpr int32_t CONDITIONED_REFLEX_DENDRITES_NUM = 20; // units
-constexpr uint32_t CONDITIONED_REFLEX_LIMIT = 10000; // units
+constexpr uint32_t CONDITIONED_REFLEX_LIMIT = 100; // units
 constexpr uint16_t SENSORY_NEURON_REINFORCEMENT_LIMIT = 65535; // units
+constexpr uint32_t SENSORY_NEURON_REINFORCEMENT_REFRESH_TIME = 10 * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND;  // quantum of time
 constexpr uint32_t MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME = 10000 * // ms
 					PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000; // quantum of time
 constexpr uint32_t MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME_DURATION = 500 * // ms
@@ -74,19 +77,37 @@ public:
 	{
 		return m_isActive;
 	}
+	void ExcitatorySynapse()
+	{
+		int isTimeOdd = (s_time+1) % 2;
+		++m_dendrite[isTimeOdd];
+	}
 	constexpr static uint8_t GetTypeStatic() { return static_cast<uint8_t>(NeuronTypes::SensoryNeuron); }
 	uint8_t GetType() override { return GetTypeStatic(); }
 
 	void Tick() override
 	{
+		static const uint32_t reinforcementStorageMax = 10;
+		if (m_reinforcementStorage < reinforcementStorageMax)
+		{
+			if (s_time - m_timeAfterReinforcement > SENSORY_NEURON_REINFORCEMENT_REFRESH_TIME)
+			{
+				m_reinforcementStorage = reinforcementStorageMax;
+			}
+		}
+
 		int isTimeOdd = s_time % 2;
 		if (m_dendrite[isTimeOdd] > 0)
 		{
 			m_isActive = true;
 			m_dendrite[isTimeOdd] = 0;
-			++s_reinforcementStorageCurrentTick;
+			m_timeAfterReinforcement = s_time;
+			if (m_reinforcementStorage > 0)
+			{
+				s_reinforcementStorageCurrentTick.fetch_add(1000, std::memory_order_relaxed);
+				--m_reinforcementStorage;
+			}
 		}
-		
 	}
 
 private:
@@ -95,7 +116,8 @@ private:
 	uint8_t m_axon[2]; // 0-254 - excitation 255 - connection lost
 	bool m_isReinforcementActive[2]; // 
 	uint32_t m_reinforcementCounter; // how many times reinforcement happened. Stop refresh when SensoryNeuronReinforcementLimit will be reached
-	uint32_t m_timeAfterReinforcement; // time counter to refresh reinforcement
+	uint64_t m_timeAfterReinforcement; // time counter to refresh reinforcement
+	uint32_t m_reinforcementStorage;
 };
 
 class MotorNeuron : public Neuron
@@ -146,10 +168,10 @@ public:
 			//PPh::ObserverClient::Instance()->SetIsForward(isActive);
 			break;
 		case 1:
-			PPh::ObserverClient::Instance()->SetIsLeft(isActive);
+			//PPh::ObserverClient::Instance()->SetIsLeft(isActive);
 			break;
 		case 2:
-			PPh::ObserverClient::Instance()->SetIsRight(isActive);
+			//PPh::ObserverClient::Instance()->SetIsRight(isActive);
 			break;
 		}
 	}
@@ -405,13 +427,21 @@ void NervousSystem::NextTick(uint64_t timeOfTheUniverse)
 			s_reinforcementStorageCurrentTick = 0;
 			if (0 < m_reinforcementLevel)
 			{
-				--m_reinforcementLevel;
+				m_reinforcementLevel -= 1 + m_reinforcementLevelSub / (300*MILLISECOND_IN_QOF);
+				++m_reinforcementLevelSub;
 				std::lock_guard<std::mutex> guard(s_statisticsMutex);
 				m_reinforcementLevelStat = m_reinforcementLevel;
-				if (m_reinforcementLevel >= REINFORCEMENT_FOR_CONDITIONED_REFLEX && m_reinforcementLevelLast < REINFORCEMENT_FOR_CONDITIONED_REFLEX)
+				if (m_reinforcementZeroTouched && m_reinforcementLevel >= REINFORCEMENT_FOR_CONDITIONED_REFLEX && m_reinforcementLevelLast < REINFORCEMENT_FOR_CONDITIONED_REFLEX)
 				{
 					++m_reinforcementsCountStat;
+					m_reinforcementZeroTouched = false;
 				}
+			}
+			else
+			{
+				m_reinforcementLevel = 0;
+				m_reinforcementZeroTouched = true;
+				m_reinforcementLevelSub = 0;
 			}
 			s_waitThreadsCount = (uint32_t)s_threads.size();
 			++s_time;
@@ -421,6 +451,7 @@ void NervousSystem::NextTick(uint64_t timeOfTheUniverse)
 
 void NervousSystem::PhotonReceived(uint8_t m_posX, uint8_t m_posY, PPh::EtherColor m_color)
 {
+	s_eyeNetwork[m_posX][m_posY].ExcitatorySynapse();
 }
 
 void NervousSystemThread(uint32_t threadNum)
