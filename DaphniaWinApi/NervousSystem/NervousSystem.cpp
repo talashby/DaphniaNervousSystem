@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <utility>
 #include <mutex>
+#include <algorithm>
 
 // constants
 
@@ -64,6 +65,7 @@ protected:
 		SensoryNeuronBlue,
 		MotorNeuron,
 		ExcitationAccumulatorNeuron,
+		ConditionedReflexCreatorNeuron,
 		ConditionedReflexNeuron
 	};
 };
@@ -271,6 +273,48 @@ private:
 			}
 		}
 	}
+};
+
+class ConditionedReflexCreatorNeuron : public Neuron
+{
+public:
+	ConditionedReflexCreatorNeuron() = default;
+	virtual ~ConditionedReflexCreatorNeuron() = default;
+	constexpr static uint8_t GetTypeStatic() { return static_cast<uint8_t>(NeuronTypes::ConditionedReflexCreatorNeuron); }
+	uint8_t GetType() override { return GetTypeStatic(); }
+	void Init(ExcitationAccumulatorNeuron *begin, ExcitationAccumulatorNeuron *end)
+	{
+		m_accumulatorBegin = begin;
+		m_accumulatorCurrent = begin;
+		m_accumulatorEnd = end;
+	}
+	void Tick() override
+	{
+		uint32_t accumTested = 0;
+		const uint32_t accumTestedMax = 10;
+		uint32_t dendriteShifted = 0;
+		const uint32_t dendriteShiftedMax = 100;
+		while (accumTested < accumTestedMax && dendriteShifted < dendriteShiftedMax)
+		{
+			uint32_t isExist = ((uint32_t*)m_accumulatorCurrent)[0];
+			if (isExist)
+			{
+				std::binary_search(&m_excitation[0], &m_excitation[CONDITIONED_REFLEX_DENDRITES_NUM], 123);
+			}
+			++m_accumulatorCurrent;
+			if (m_accumulatorCurrent >= m_accumulatorEnd)
+			{
+				m_accumulatorCurrent = m_accumulatorBegin;
+			}
+		}
+	}
+
+private:
+	uint32_t m_dendrite[CONDITIONED_REFLEX_DENDRITES_NUM]; // read corresponding axon
+	uint16_t m_excitation[CONDITIONED_REFLEX_DENDRITES_NUM]; // max: ExcitationAccumulationTime * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000 quantum of time
+	ExcitationAccumulatorNeuron *m_accumulatorBegin;
+	ExcitationAccumulatorNeuron *m_accumulatorEnd;
+	ExcitationAccumulatorNeuron *m_accumulatorCurrent;
 };
 
 class ConditionedReflexNeuron : public Neuron
