@@ -10,6 +10,7 @@
 #include <utility>
 #include <mutex>
 #include <algorithm>
+#include <xutility>
 
 // constants
 
@@ -299,7 +300,18 @@ public:
 			uint32_t isExist = ((uint32_t*)m_accumulatorCurrent)[0];
 			if (isExist)
 			{
-				std::binary_search(&m_excitation[0], &m_excitation[CONDITIONED_REFLEX_DENDRITES_NUM], 123);
+				uint16_t *ptrFirst = &m_excitation[0];
+				uint16_t *ptrLast = &m_excitation[CONDITIONED_REFLEX_DENDRITES_NUM];
+				uint16_t *ptr = std::lower_bound(ptrFirst, ptrLast, 123);
+				if (ptr < ptrLast)
+				{
+					uint64_t index = ptrLast - ptr;
+					assert(index < std::size(m_dendrite));
+					if ((Neuron*)ptr == GetNeuronInterface(m_dendrite[index]))
+					{
+						*ptr = 
+					}
+				}
 			}
 			++m_accumulatorCurrent;
 			if (m_accumulatorCurrent >= m_accumulatorEnd)
