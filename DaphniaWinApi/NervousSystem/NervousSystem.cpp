@@ -271,6 +271,7 @@ public:
 				++m_accumulatedExcitation;
 				int isTimeOdd = s_time % 2;
 				m_accumulatedExcitationOut[isTimeOdd] = m_accumulatedExcitation;
+				m_periodWithoutExcitation = 0;
 			}
 		}
 		else
@@ -324,13 +325,26 @@ public:
 		m_accumulatorCurrent = begin;
 		m_accumulatorEnd = end;
 		assert(m_accumulatorEnd - m_accumulatorBegin > (int32_t)m_dendrite.size());
-		for (size_t ii = 0; ii < m_dendrite.size(); ii++)
+		for (int ii = 0; ii < m_dendrite.size(); ii++)
 		{
 			m_dendrite[ii] = m_accumulatorCurrent->GetId();
 			m_accumulatorCurrent->SetReflexCreatorDendriteIndex(ii);
 			++m_accumulatorCurrent;
 		}
 	}
+
+	bool CheckPriority()
+	{
+		for (int ii=0; ii<m_excitation.size()-1; ++ii)
+		{
+			if (m_excitation[ii] > m_excitation[ii + 1])
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
 	void Tick() override
 	{
 		uint32_t accumTested = 0;
@@ -349,51 +363,60 @@ public:
 				if (dendriteIndex != -1)
 				{
 					assert(GetNeuronInterface(m_dendrite[dendriteIndex]) == (Neuron*)m_accumulatorCurrent);
-					m_excitation[dendriteIndex] = accumulatedExcitation;
-					auto newDendriteIndex = std::distance(m_excitation.begin(), excitationIterator);
-					newDendriteIndex = std::max(0, newDendriteIndex - 1); //
-					if (dendriteIndex != newDendriteIndex)
+
+					auto excitationIteratorUB = std::upper_bound(m_excitation.begin(), m_excitation.end(), accumulatedExcitation);
+					int32_t dendriteIndexLB = (int32_t)std::distance(m_excitation.begin(), excitationIterator);
+					int32_t dendriteIndexUB = (int32_t)std::distance(m_excitation.begin(), excitationIteratorUB);
+					if (dendriteIndex == dendriteIndexLB-1 || (dendriteIndex >= dendriteIndexLB && dendriteIndex <= dendriteIndexUB) ||
+						(dendriteIndex==m_excitation.size()-1 && dendriteIndexLB == m_excitation.size()))
 					{
+						m_excitation[dendriteIndex] = accumulatedExcitation;
+					}
+					else
+					{
+						int32_t newDendriteIndex = dendriteIndexLB; //
+						if (dendriteIndex < newDendriteIndex)
+						{
+							--newDendriteIndex;
+						}
+						assert(dendriteIndex != newDendriteIndex);
 						int sign = PPh::Sign(newDendriteIndex - dendriteIndex);
-						for (int ii = dendriteIndex; ii != newDendriteIndex; ii += sign)
+						for (int32_t ii = dendriteIndex; ii != newDendriteIndex; ii += sign)
 						{
 							m_dendrite[ii] = m_dendrite[ii + sign];
 							m_excitation[ii] = m_excitation[ii + sign];
 							assert(dynamic_cast<ExcitationAccumulatorNeuron*>(GetNeuronInterface(m_dendrite[ii])));
 							ExcitationAccumulatorNeuron* neuron = (ExcitationAccumulatorNeuron*)GetNeuronInterface(m_dendrite[ii]);
-							if (ii + sign != neuron->GetReflexCreatorDendriteIndex())
-							{
-								int ttt = 0;
-							}
 							assert(ii + sign == neuron->GetReflexCreatorDendriteIndex());
 							neuron->SetReflexCreatorDendriteIndex(ii);
 						}
 						m_dendrite[newDendriteIndex] = m_accumulatorCurrent->GetId();
 						m_excitation[newDendriteIndex] = accumulatedExcitation;
 						m_accumulatorCurrent->SetReflexCreatorDendriteIndex(newDendriteIndex);
+						bool bb = CheckPriority();
+						if (!bb)
+						{
+							int ttt = 0;
+						}
 					}
 				}
 				else
 				{
 					if (excitationIterator != m_excitation.begin())
 					{
-						auto newDendriteIndex = std::distance(m_excitation.begin(), excitationIterator-1);
+						int32_t newDendriteIndex = (int32_t)std::distance(m_excitation.begin(), excitationIterator-1);
 						assert((uint32_t)newDendriteIndex < m_dendrite.size());
 						assert(m_dendrite[0]);
 						ExcitationAccumulatorNeuron* looser = (ExcitationAccumulatorNeuron*)GetNeuronInterface(m_dendrite[0]);
 						looser->SetReflexCreatorDendriteIndex(-1);
 
-						for (int ii = 0; ii < newDendriteIndex; ++ii)
+						for (int32_t ii = 0; ii < newDendriteIndex; ++ii)
 						{
 							m_dendrite[ii] = m_dendrite[ii + 1];
 							m_excitation[ii] = m_excitation[ii + 1];
 							assert(m_dendrite[ii]);
 							assert(dynamic_cast<ExcitationAccumulatorNeuron*>(GetNeuronInterface(m_dendrite[ii])));
 							ExcitationAccumulatorNeuron* neuron = (ExcitationAccumulatorNeuron*)GetNeuronInterface(m_dendrite[ii]);
-							if (ii + 1 != neuron->GetReflexCreatorDendriteIndex())
-							{
-								int eee = 0;
-							}
 							assert(ii + 1 == neuron->GetReflexCreatorDendriteIndex());
 							neuron->SetReflexCreatorDendriteIndex(ii);
 						}
@@ -401,6 +424,7 @@ public:
 						m_excitation[newDendriteIndex] = accumulatedExcitation;
 						m_accumulatorCurrent->SetReflexCreatorDendriteIndex(newDendriteIndex);
 						dendriteShifted += newDendriteIndex;
+						CheckPriority();
 					}
 				}
 			}
@@ -606,6 +630,7 @@ void NervousSystem::Init()
 		id |= type;
 		s_excitationAccumulatorNetwork[excitationAccumulatorNetworkIndex++].Init(id);
 	}
+	assert(s_excitationAccumulatorNetwork.size() == excitationAccumulatorNetworkIndex);
 	s_conditionedReflexCreatorNeuron.Init(&s_excitationAccumulatorNetwork[0], &s_excitationAccumulatorNetwork[s_excitationAccumulatorNetwork.size() - 1]);
 
 	s_nervousSystem = new NervousSystem();
