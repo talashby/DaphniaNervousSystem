@@ -91,12 +91,13 @@ public:
 
 	bool IsActive() const override
 	{
-		return m_isActive;
+		int isTimeEven = (s_time + 1) % 2;
+		return m_isActive[isTimeEven];
 	}
 	void ExcitatorySynapse()
 	{
-		int isTimeOdd = (s_time+1) % 2;
-		++m_dendrite[isTimeOdd];
+		int isTimeEven = (s_time+1) % 2;
+		++m_dendrite[isTimeEven];
 	}
 	constexpr static uint8_t GetTypeStatic() { return static_cast<uint8_t>(NeuronTypes::SensoryNeuron); }
 	uint8_t GetType() override { return GetTypeStatic(); }
@@ -114,7 +115,7 @@ public:
 		int isTimeOdd = s_time % 2;
 		if (m_dendrite[isTimeOdd] > 0)
 		{
-			m_isActive = true;
+			m_isActive[isTimeOdd] = true;
 			m_dendrite[isTimeOdd] = 0;
 			m_timeAfterReinforcement = s_time;
 			if (m_reinforcementStorage > 0)
@@ -123,11 +124,15 @@ public:
 				--m_reinforcementStorage;
 			}
 		}
+		else
+		{
+			m_isActive[isTimeOdd] = false;
+		}
 	}
 
 private:
 	static const uint32_t m_reinforcementStorageMax = 5;
-	bool m_isActive;
+	bool m_isActive[2];
 	uint8_t m_dendrite[2]; // 0-254 - excitation 255 - connection lost
 	uint8_t m_axon[2]; // 0-254 - excitation 255 - connection lost
 	bool m_isReinforcementActive[2]; // 
@@ -274,7 +279,7 @@ public:
 			{
 				++m_periodWithoutExcitation;
 			}
-			if (EXCITATION_ACCUMULATION_LIMIT - m_periodWithoutExcitation > m_accumulatedExcitation)
+			if (EXCITATION_ACCUMULATION_LIMIT - m_periodWithoutExcitation < m_accumulatedExcitation)
 			{
 				m_accumulatedExcitation = EXCITATION_ACCUMULATION_LIMIT - m_periodWithoutExcitation;
 				int isTimeOdd = s_time % 2;
@@ -322,6 +327,7 @@ public:
 		for (size_t ii = 0; ii < m_dendrite.size(); ii++)
 		{
 			m_dendrite[ii] = m_accumulatorCurrent->GetId();
+			m_accumulatorCurrent->SetReflexCreatorDendriteIndex(ii);
 			++m_accumulatorCurrent;
 		}
 	}
@@ -339,41 +345,63 @@ public:
 			{
 				uint16_t accumulatedExcitation = m_accumulatorCurrent->GetAccumulatedExcitation();
 				auto excitationIterator = std::lower_bound(m_excitation.begin(), m_excitation.end(), accumulatedExcitation);
-				if (excitationIterator != m_excitation.end())
+				int32_t dendriteIndex = m_accumulatorCurrent->GetReflexCreatorDendriteIndex();
+				if (dendriteIndex != -1)
 				{
-					int32_t dendriteIndex = m_accumulatorCurrent->GetReflexCreatorDendriteIndex();
-					if (dendriteIndex != -1)
+					assert(GetNeuronInterface(m_dendrite[dendriteIndex]) == (Neuron*)m_accumulatorCurrent);
+					m_excitation[dendriteIndex] = accumulatedExcitation;
+					auto newDendriteIndex = std::distance(m_excitation.begin(), excitationIterator);
+					newDendriteIndex = std::max(0, newDendriteIndex - 1); //
+					if (dendriteIndex != newDendriteIndex)
 					{
-						assert(GetNeuronInterface(m_dendrite[dendriteIndex]) == (Neuron*)m_accumulatorCurrent);
-						m_excitation[dendriteIndex] = accumulatedExcitation;
-					}
-					else
-					{
-						if (excitationIterator != m_excitation.begin())
+						int sign = PPh::Sign(newDendriteIndex - dendriteIndex);
+						for (int ii = dendriteIndex; ii != newDendriteIndex; ii += sign)
 						{
-							auto newDendriteIndex = std::distance(m_excitation.begin(), excitationIterator-1);
-							assert((uint32_t)newDendriteIndex < m_dendrite.size());
-							assert(m_dendrite[0]);
-							ExcitationAccumulatorNeuron* looser = (ExcitationAccumulatorNeuron*)GetNeuronInterface(m_dendrite[0]);
-							looser->SetReflexCreatorDendriteIndex(-1);
-
-							for (int ii = 0; ii < newDendriteIndex; ++ii)
+							m_dendrite[ii] = m_dendrite[ii + sign];
+							m_excitation[ii] = m_excitation[ii + sign];
+							assert(dynamic_cast<ExcitationAccumulatorNeuron*>(GetNeuronInterface(m_dendrite[ii])));
+							ExcitationAccumulatorNeuron* neuron = (ExcitationAccumulatorNeuron*)GetNeuronInterface(m_dendrite[ii]);
+							if (ii + sign != neuron->GetReflexCreatorDendriteIndex())
 							{
-								m_dendrite[ii] = m_dendrite[ii+1];
-								m_excitation[ii] = m_excitation[ii + 1];
-								assert(m_dendrite[ii]);
-								ExcitationAccumulatorNeuron* neuron = (ExcitationAccumulatorNeuron*)GetNeuronInterface(m_dendrite[ii]);
-								neuron->SetReflexCreatorDendriteIndex(ii);
+								int ttt = 0;
 							}
-							m_dendrite[newDendriteIndex] = m_accumulatorCurrent->GetId();
-							m_excitation[newDendriteIndex] = accumulatedExcitation;
-							dendriteShifted += newDendriteIndex;
+							assert(ii + sign == neuron->GetReflexCreatorDendriteIndex());
+							neuron->SetReflexCreatorDendriteIndex(ii);
 						}
+						m_dendrite[newDendriteIndex] = m_accumulatorCurrent->GetId();
+						m_excitation[newDendriteIndex] = accumulatedExcitation;
+						m_accumulatorCurrent->SetReflexCreatorDendriteIndex(newDendriteIndex);
 					}
 				}
 				else
 				{
-					m_excitation.back() = accumulatedExcitation;
+					if (excitationIterator != m_excitation.begin())
+					{
+						auto newDendriteIndex = std::distance(m_excitation.begin(), excitationIterator-1);
+						assert((uint32_t)newDendriteIndex < m_dendrite.size());
+						assert(m_dendrite[0]);
+						ExcitationAccumulatorNeuron* looser = (ExcitationAccumulatorNeuron*)GetNeuronInterface(m_dendrite[0]);
+						looser->SetReflexCreatorDendriteIndex(-1);
+
+						for (int ii = 0; ii < newDendriteIndex; ++ii)
+						{
+							m_dendrite[ii] = m_dendrite[ii + 1];
+							m_excitation[ii] = m_excitation[ii + 1];
+							assert(m_dendrite[ii]);
+							assert(dynamic_cast<ExcitationAccumulatorNeuron*>(GetNeuronInterface(m_dendrite[ii])));
+							ExcitationAccumulatorNeuron* neuron = (ExcitationAccumulatorNeuron*)GetNeuronInterface(m_dendrite[ii]);
+							if (ii + 1 != neuron->GetReflexCreatorDendriteIndex())
+							{
+								int eee = 0;
+							}
+							assert(ii + 1 == neuron->GetReflexCreatorDendriteIndex());
+							neuron->SetReflexCreatorDendriteIndex(ii);
+						}
+						m_dendrite[newDendriteIndex] = m_accumulatorCurrent->GetId();
+						m_excitation[newDendriteIndex] = accumulatedExcitation;
+						m_accumulatorCurrent->SetReflexCreatorDendriteIndex(newDendriteIndex);
+						dendriteShifted += newDendriteIndex;
+					}
 				}
 			}
 			++m_accumulatorCurrent;
