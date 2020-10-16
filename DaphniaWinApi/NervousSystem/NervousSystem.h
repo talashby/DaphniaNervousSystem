@@ -27,6 +27,7 @@ public:
 	void StopSimulation();
 	bool IsSimulationRunning() const;
 	void GetStatisticsParams(int32_t &reinforcementLevelStat, int32_t &reinforcementsCountStat) const;
+	int32_t GetReinforcementCount() const; // thread safe changed on NextTick
 	uint64_t GetTime() const;
 	void NextTick(uint64_t timeOfTheUniverse);
 

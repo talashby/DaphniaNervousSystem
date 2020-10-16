@@ -20,7 +20,8 @@ constexpr int32_t REINFORCEMENT_FOR_CONDITIONED_REFLEX = 20000; // units
 constexpr int32_t EXCITATION_ACCUMULATION_TIME = 100; // ms
 constexpr uint16_t EXCITATION_ACCUMULATION_LIMIT = EXCITATION_ACCUMULATION_TIME * MILLISECOND_IN_QOF; // units
 constexpr int32_t CONDITIONED_REFLEX_DENDRITES_NUM = 20; // units
-constexpr uint32_t CONDITIONED_REFLEX_LIMIT = 100; // units
+constexpr uint32_t CONDITIONED_REFLEX_CONTAINER_NUM = 100; // units
+constexpr uint32_t CONDITIONED_REFLEX_PER_CONTAINER = 100; // units
 constexpr uint16_t SENSORY_NEURON_REINFORCEMENT_LIMIT = 65535; // units
 constexpr uint32_t SENSORY_NEURON_REINFORCEMENT_REFRESH_TIME = 10 * SECOND_IN_QOF;  // quantum of time
 constexpr uint32_t MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME = 10 * SECOND_IN_QOF; // quantum of time
@@ -39,6 +40,10 @@ static std::mutex s_statisticsMutex;
 
 class Neuron* GetNeuronInterface(uint32_t neuronId);
 uint32_t GetNeuronIndex(Neuron *neuron);
+class ConditionedReflexCreatorNeuron* GetConditionedReflexCreatorNeuron();
+class ConditionedReflexNeuron;
+void ConditionedReflexCurrentInit(ConditionedReflexNeuron *conditionedReflexNeuron, std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> &dendrite, std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> &accumulatedExcitation);
+
 
 class Neuron
 {
@@ -322,11 +327,15 @@ public:
 	virtual ~ConditionedReflexCreatorNeuron() = default;
 	constexpr static uint8_t GetTypeStatic() { return static_cast<uint8_t>(NeuronTypes::ConditionedReflexCreatorNeuron); }
 	uint8_t GetType() override { return GetTypeStatic(); }
-	void Init(ExcitationAccumulatorNeuron *begin, ExcitationAccumulatorNeuron *end)
+	void Init(ExcitationAccumulatorNeuron *begin, ExcitationAccumulatorNeuron *end,
+		ConditionedReflexNeuron *beginCond, ConditionedReflexNeuron *endCond)
 	{
 		m_accumulatorBegin = begin;
 		m_accumulatorCurrent = begin;
 		m_accumulatorEnd = end;
+		m_conditionedReflexBegin = beginCond;
+		m_conditionedReflexCurrent = beginCond;
+		m_conditionedReflexEnd = endCond;
 		assert(m_accumulatorEnd - m_accumulatorBegin > (int32_t)m_dendrite.size());
 		for (uint32_t ii = 0; ii < m_dendrite.size(); ii++)
 		{
@@ -426,6 +435,13 @@ public:
 					}
 				}
 			}
+			if (m_reinforcementsCount < NervousSystem::Instance()->GetReinforcementCount())
+			{
+				++m_reinforcementsCount;
+				ConditionedReflexCurrentInit(m_conditionedReflexCurrent, m_dendrite, m_excitation);
+				++m_conditionedReflexCurrent;
+				assert(m_conditionedReflexCurrent < m_conditionedReflexEnd); // TMP
+			}
 			++m_accumulatorCurrent;
 			if (m_accumulatorCurrent >= m_accumulatorEnd)
 			{
@@ -440,6 +456,10 @@ private:
 	ExcitationAccumulatorNeuron *m_accumulatorBegin;
 	ExcitationAccumulatorNeuron *m_accumulatorEnd;
 	ExcitationAccumulatorNeuron *m_accumulatorCurrent;
+	ConditionedReflexNeuron *m_conditionedReflexBegin;
+	ConditionedReflexNeuron *m_conditionedReflexCurrent;
+	ConditionedReflexNeuron *m_conditionedReflexEnd;
+	int32_t m_reinforcementsCount;
 };
 
 class ConditionedReflexNeuron : public Neuron
@@ -450,10 +470,29 @@ public:
 	constexpr static uint8_t GetTypeStatic() { return static_cast<uint8_t>(NeuronTypes::ConditionedReflexNeuron); }
 	uint8_t GetType() override { return GetTypeStatic(); }
 
+	void Init(std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> &dendrite, std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> &accumulatedExcitation)
+	{
+		//GetConditionedReflexCreatorNeuron();
+		m_isActive = true;
+	}
+
+	void Tick() override
+	{
+		//assert(m_debugCheckTime != s_time); // to check Tick calls once per quantum of time
+		//m_debugCheckTime = s_time;
+		int ttt = 0;
+	}
 private:
-	uint32_t m_dendrite[CONDITIONED_REFLEX_DENDRITES_NUM]; // read corresponding axon
-	uint16_t m_accumulatedExcitation[CONDITIONED_REFLEX_DENDRITES_NUM]; // max: ExcitationAccumulationTime * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000 quantum of time
+	std::atomic<bool> m_isActive;
+	std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> m_dendrite; // read corresponding axon
+	std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> m_excitation; // max: ExcitationAccumulationTime * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000 quantum of time
+	//uint64_t m_debugCheckTime = -1; // to check Tick calls once per quantum of time
 };
+
+void ConditionedReflexCurrentInit(ConditionedReflexNeuron *conditionedReflexNeuron, std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> &dendrite, std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> &accumulatedExcitation)
+{
+	conditionedReflexNeuron->Init(dendrite, accumulatedExcitation);
+}
 
 class ConditionedReflexContainerNeuron : public Neuron
 {
@@ -472,8 +511,8 @@ public:
 	void Tick() override
 	{
 		m_conditionedReflexCurrent->Tick();
-		++m_conditionedReflexCurrent;
-		if (m_conditionedReflexCurrent < m_conditionedReflexEnd)
+		m_conditionedReflexCurrent += CONDITIONED_REFLEX_PER_CONTAINER;
+		if (m_conditionedReflexCurrent >= m_conditionedReflexEnd)
 		{
 			m_conditionedReflexCurrent = m_conditionedReflexBegin;
 		}
@@ -490,7 +529,8 @@ static std::array<std::array<SensoryNeuronGreen, PPh::GetObserverEyeSize()>, PPh
 static std::array<std::array<SensoryNeuronBlue, PPh::GetObserverEyeSize()>, PPh::GetObserverEyeSize()> s_eyeNetworkBlue;
 static std::array<MotorNeuron, 3> s_motorNetwork; // 0 - forward, 1 - left, 2 - right
 static std::array<ExcitationAccumulatorNeuron, EYE_COLOR_NEURONS_NUM*3 + s_motorNetwork.size()> s_excitationAccumulatorNetwork;
-static std::array<ConditionedReflexNeuron, CONDITIONED_REFLEX_LIMIT> s_conditionedReflexNetwork;
+static std::array<ConditionedReflexNeuron, CONDITIONED_REFLEX_CONTAINER_NUM*CONDITIONED_REFLEX_PER_CONTAINER> s_conditionedReflexNetwork;
+static std::array<ConditionedReflexContainerNeuron, CONDITIONED_REFLEX_CONTAINER_NUM> s_conditionedReflexContainerNetwork;
 static ConditionedReflexCreatorNeuron s_conditionedReflexCreatorNeuron;
 
 struct NetworksMetadata
@@ -507,7 +547,7 @@ static std::array s_networksMetadata{
 	NetworksMetadata{0, 0, (uint64_t)(&s_eyeNetworkBlue[0][0]), (uint64_t)(&s_eyeNetworkBlue[0][0] + EYE_COLOR_NEURONS_NUM), sizeof(SensoryNeuronBlue)},
 	NetworksMetadata{0, 0, (uint64_t)&s_motorNetwork[0], (uint64_t)(&s_motorNetwork[0]+s_motorNetwork.size()), sizeof(MotorNeuron)},
 	NetworksMetadata{0, 0, (uint64_t)&s_excitationAccumulatorNetwork[0], (uint64_t)(&s_excitationAccumulatorNetwork[0] + s_excitationAccumulatorNetwork.size()), sizeof(ExcitationAccumulatorNeuron)},
-	NetworksMetadata{0, 0, (uint64_t)&s_conditionedReflexNetwork[0], (uint64_t)(&s_conditionedReflexNetwork[0] + s_conditionedReflexNetwork.size()), sizeof(ConditionedReflexNeuron)},
+	NetworksMetadata{0, 0, (uint64_t)&s_conditionedReflexContainerNetwork[0], (uint64_t)(&s_conditionedReflexContainerNetwork[0] + s_conditionedReflexContainerNetwork.size()), sizeof(ConditionedReflexContainerNeuron)},
 	NetworksMetadata{0, 0, (uint64_t)&s_conditionedReflexCreatorNeuron, (uint64_t)(&s_conditionedReflexCreatorNeuron + 1), sizeof(ConditionedReflexCreatorNeuron)}
 };
 static uint32_t s_neuronsNum = EYE_COLOR_NEURONS_NUM*3 + (uint32_t)s_motorNetwork.size() +
@@ -515,7 +555,12 @@ static uint32_t s_neuronsNum = EYE_COLOR_NEURONS_NUM*3 + (uint32_t)s_motorNetwor
 	+ 1 // conditionedReflexCreatorNeuron
 	;
 
-class Neuron* GetNeuronInterface(uint32_t neuronId)
+ConditionedReflexCreatorNeuron* GetConditionedReflexCreatorNeuron()
+{
+	return &s_conditionedReflexCreatorNeuron;
+}
+
+Neuron* GetNeuronInterface(uint32_t neuronId)
 {
 	Neuron* neuron = nullptr;
 	uint8_t neuronType = (neuronId >> 24) & 0xff;
@@ -606,7 +651,6 @@ void NervousSystem::Init()
 		el.m_endNeuronNum = firstNeuronNum + (uint32_t)((el.m_end - el.m_begin) / el.m_size);
 		firstNeuronNum = el.m_endNeuronNum;
 	}
-	
 
 	uint32_t step = s_neuronsNum / (uint32_t)s_threads.size();
 	uint32_t remain = s_neuronsNum - step * (uint32_t)s_threads.size();
@@ -657,8 +701,15 @@ void NervousSystem::Init()
 		id |= type;
 		s_excitationAccumulatorNetwork[excitationAccumulatorNetworkIndex++].Init(id);
 	}
+	for (uint32_t ii = 0; ii < s_conditionedReflexContainerNetwork.size(); ++ii)
+	{
+		s_conditionedReflexContainerNetwork[ii].Init(&s_conditionedReflexNetwork[ii],
+			&s_conditionedReflexNetwork[ii*CONDITIONED_REFLEX_PER_CONTAINER] + CONDITIONED_REFLEX_PER_CONTAINER);
+		assert(ii*CONDITIONED_REFLEX_PER_CONTAINER + CONDITIONED_REFLEX_PER_CONTAINER <= s_conditionedReflexNetwork.size());
+	}
 	assert(s_excitationAccumulatorNetwork.size() == excitationAccumulatorNetworkIndex);
-	s_conditionedReflexCreatorNeuron.Init(&s_excitationAccumulatorNetwork[0], &s_excitationAccumulatorNetwork[s_excitationAccumulatorNetwork.size() - 1]);
+	s_conditionedReflexCreatorNeuron.Init(&s_excitationAccumulatorNetwork[0], &s_excitationAccumulatorNetwork[0] + s_excitationAccumulatorNetwork.size(),
+		&s_conditionedReflexNetwork[0], &s_conditionedReflexNetwork[0] + s_conditionedReflexNetwork.size());
 
 	s_nervousSystem = new NervousSystem();
 }
@@ -710,6 +761,11 @@ void NervousSystem::GetStatisticsParams(int32_t &reinforcementLevelStat, int32_t
 	std::lock_guard<std::mutex> guard(s_statisticsMutex);
 	reinforcementLevelStat = m_reinforcementLevelStat;
 	reinforcementsCountStat = m_reinforcementsCountStat;
+}
+
+int32_t NervousSystem::GetReinforcementCount() const
+{
+	return m_reinforcementsCountStat;
 }
 
 uint64_t NervousSystem::GetTime() const
