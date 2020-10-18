@@ -3,17 +3,17 @@
 
 #include "ParallelPhysics/PPhHelpers.h"
 
-/*class Neuron
-{
-public:
-	Neuron() = default;
-	virtual ~Neuron() = default;
-};
+class Neuron;
+class ConditionedReflexCreatorNeuron;
 
-class SimpleAdder : public Neuron
+namespace NSNamespace
 {
-	SimpleAdder() = default;
-};*/
+	uint32_t GetNeuronIndex(Neuron *neuron);
+	uint64_t GetNSTime();
+	void AddReinforcement(uint32_t val);
+	Neuron* GetNeuronInterface(uint32_t neuronId);
+	ConditionedReflexCreatorNeuron* GetConditionedReflexCreatorNeuron();
+}
 
 class NervousSystem
 {

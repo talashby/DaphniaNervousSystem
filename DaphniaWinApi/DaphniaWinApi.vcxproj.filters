@@ -45,6 +45,9 @@
     <ClInclude Include="NervousSystem\NervousSystem.h">
       <Filter>Source Files\NervousSystem</Filter>
     </ClInclude>
+    <ClInclude Include="NervousSystem\Neurons.h">
+      <Filter>Source Files\NervousSystem</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DaphniaWinApi.cpp">
@@ -57,6 +60,9 @@
       <Filter>Source Files\ParallelPhysics</Filter>
     </ClCompile>
     <ClCompile Include="NervousSystem\NervousSystem.cpp">
+      <Filter>Source Files\NervousSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="NervousSystem\Neurons.cpp">
       <Filter>Source Files\NervousSystem</Filter>
     </ClCompile>
   </ItemGroup>

@@ -162,6 +162,7 @@
     <ClInclude Include="DaphniaWinApi.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="NervousSystem\NervousSystem.h" />
+    <ClInclude Include="NervousSystem\Neurons.h" />
     <ClInclude Include="ParallelPhysics\ObserverClient.h" />
     <ClInclude Include="ParallelPhysics\PPhHelpers.h" />
     <ClInclude Include="ParallelPhysics\ServerProtocol.h" />
@@ -171,6 +172,7 @@
   <ItemGroup>
     <ClCompile Include="DaphniaWinApi.cpp" />
     <ClCompile Include="NervousSystem\NervousSystem.cpp" />
+    <ClCompile Include="NervousSystem\Neurons.cpp" />
     <ClCompile Include="ParallelPhysics\ObserverClient.cpp" />
     <ClCompile Include="ParallelPhysics\PPhHelpers.cpp" />
   </ItemGroup>
