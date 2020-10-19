@@ -1,14 +1,16 @@
 
 #include "Neurons.h"
+
 #include "NervousSystem.h"
+#include "ParallelPhysics/ObserverClient.h"
 #include <assert.h>
 
 // constants
 constexpr int32_t EXCITATION_ACCUMULATION_TIME = 100; // ms
 constexpr uint16_t EXCITATION_ACCUMULATION_LIMIT = EXCITATION_ACCUMULATION_TIME * MILLISECOND_IN_QUANTS; // units
 constexpr uint16_t SENSORY_NEURON_REINFORCEMENT_LIMIT = 65535; // units
-constexpr uint32_t SENSORY_NEURON_REINFORCEMENT_REFRESH_TIME = 10 * SECOND_IN_QUANTS;  // quantum of time
-constexpr uint32_t MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME = 10 * SECOND_IN_QUANTS; // quantum of time
+constexpr uint32_t SENSORY_NEURON_REINFORCEMENT_REFRESH_TIME = 15 * SECOND_IN_QUANTS;  // quantum of time
+constexpr uint32_t MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME = 15 * SECOND_IN_QUANTS; // quantum of time
 constexpr uint32_t MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME_DURATION = 500 * MILLISECOND_IN_QUANTS; // quantum of time
 //
 
@@ -126,10 +128,10 @@ void MotorNeuron::Tick()
 		//PPh::ObserverClient::Instance()->SetIsForward(isActive);
 		break;
 	case 1:
-		//PPh::ObserverClient::Instance()->SetIsLeft(isActive);
+		PPh::ObserverClient::Instance()->SetIsLeft(isActive);
 		break;
 	case 2:
-		//PPh::ObserverClient::Instance()->SetIsRight(isActive);
+		PPh::ObserverClient::Instance()->SetIsRight(isActive);
 		break;
 	}
 }
@@ -296,7 +298,8 @@ void ConditionedReflexCreatorNeuron::Tick()
 
 void ConditionedReflexNeuron::Init(std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> &dendrite, std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> &accumulatedExcitation)
 {
-	//GetConditionedReflexCreatorNeuron();
+	m_dendrite = dendrite;
+	m_excitation = accumulatedExcitation;
 	m_isActive = true;
 }
 

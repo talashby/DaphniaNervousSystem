@@ -38,7 +38,7 @@ private:
 
 	int32_t m_reinforcementLevel = 30000;
 	int32_t m_reinforcementLevelLast = 30000;
-	bool m_reinforcementZeroTouched = true;
+	bool m_reinforcementZeroTouched = false;
 	uint32_t m_reinforcementLevelSub = 0;
 
 	// statistics

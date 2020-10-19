@@ -63,10 +63,6 @@ static std::array s_networksMetadata{
 	NetworksMetadata{0, 0, (uint64_t)&s_conditionedReflexContainerNetwork[0], (uint64_t)(&s_conditionedReflexContainerNetwork[0] + s_conditionedReflexContainerNetwork.size()), sizeof(ConditionedReflexContainerNeuron)},
 	NetworksMetadata{0, 0, (uint64_t)&s_conditionedReflexCreatorNeuron, (uint64_t)(&s_conditionedReflexCreatorNeuron + 1), sizeof(ConditionedReflexCreatorNeuron)}
 };
-static uint32_t s_neuronsNum = EYE_COLOR_NEURONS_NUM*3 + (uint32_t)s_motorNetwork.size() +
-	(uint32_t)s_excitationAccumulatorNetwork.size() + (uint32_t)s_conditionedReflexNetwork.size()
-	+ 1 // conditionedReflexCreatorNeuron
-	;
 
 namespace NSNamespace
 {
@@ -178,8 +174,9 @@ void NervousSystem::Init()
 		firstNeuronNum = el.m_endNeuronNum;
 	}
 
-	uint32_t step = s_neuronsNum / (uint32_t)s_threads.size();
-	uint32_t remain = s_neuronsNum - step * (uint32_t)s_threads.size();
+	uint32_t neuronsNum = s_networksMetadata.back().m_endNeuronNum;
+	uint32_t step = neuronsNum / (uint32_t)s_threads.size();
+	uint32_t remain = neuronsNum - step * (uint32_t)s_threads.size();
 	uint32_t posBegin = 0;
 	for (std::pair<uint32_t, uint32_t> &pair : s_threadNeurons)
 	{
@@ -301,7 +298,8 @@ uint64_t NervousSystem::GetTime() const
 
 void NervousSystem::NextTick(uint64_t timeOfTheUniverse)
 {
-	if (!s_waitThreadsCount) // Is Tick Finished
+	while(s_waitThreadsCount) // Is Tick Finished
+	{ }
 	{
 		if (timeOfTheUniverse > s_time)
 		{
@@ -310,7 +308,7 @@ void NervousSystem::NextTick(uint64_t timeOfTheUniverse)
 			s_reinforcementStorageCurrentTick = 0;
 			if (0 < m_reinforcementLevel)
 			{
-				m_reinforcementLevel -= 1 + m_reinforcementLevelSub / (300*MILLISECOND_IN_QUANTS);
+				m_reinforcementLevel -= 1 + m_reinforcementLevelSub / (100*MILLISECOND_IN_QUANTS);
 				++m_reinforcementLevelSub;
 				std::lock_guard<std::mutex> guard(s_statisticsMutex);
 				if (m_reinforcementZeroTouched && m_reinforcementLevel >= REINFORCEMENT_FOR_CONDITIONED_REFLEX && m_reinforcementLevelLast < REINFORCEMENT_FOR_CONDITIONED_REFLEX)
