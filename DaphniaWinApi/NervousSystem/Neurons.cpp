@@ -9,7 +9,7 @@
 constexpr int32_t EXCITATION_ACCUMULATION_TIME = 100; // ms
 constexpr uint16_t EXCITATION_ACCUMULATION_LIMIT = EXCITATION_ACCUMULATION_TIME * MILLISECOND_IN_QUANTS; // units
 constexpr uint16_t SENSORY_NEURON_REINFORCEMENT_LIMIT = 65535; // units
-constexpr uint32_t SENSORY_NEURON_REINFORCEMENT_REFRESH_TIME = 15 * SECOND_IN_QUANTS;  // quantum of time
+constexpr uint32_t SENSORY_NEURON_REINFORCEMENT_REFRESH_TIME = 5 * SECOND_IN_QUANTS;  // quantum of time
 constexpr uint32_t MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME = 15 * SECOND_IN_QUANTS; // quantum of time
 constexpr uint32_t MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME_DURATION = 500 * MILLISECOND_IN_QUANTS; // quantum of time
 //
@@ -203,13 +203,27 @@ void ConditionedReflexCreatorNeuron::Init(ExcitationAccumulatorNeuron *begin, Ex
 	}
 }
 
+ConditionedReflexDendritesArray ConditionedReflexCreatorNeuron::GetDendritesArray() const
+{
+	int isTimeEven = (NSNamespace::GetNSTime() + 1) % 2;
+	return m_dendriteOut[isTimeEven];
+}
+
+ConditionedReflexExitationArray ConditionedReflexCreatorNeuron::GetExcitationArray() const
+{
+	int isTimeEven = (NSNamespace::GetNSTime() + 1) % 2;
+	return m_excitationOut[isTimeEven];
+}
+
 void ConditionedReflexCreatorNeuron::Tick()
 {
 	uint32_t accumTested = 0;
 	const uint32_t accumTestedMax = 10;
 	uint32_t dendriteShifted = 0;
 	const uint32_t dendriteShiftedMax = 100;
-	while (accumTested < accumTestedMax && dendriteShifted < dendriteShiftedMax)
+	bool isReinforcementGrowth = NervousSystem::Instance()->IsReinforcementGrowth();
+	bool isReinforcementHappened = NervousSystem::Instance()->IsReinforcementHappened();
+	while ((!isReinforcementGrowth || isReinforcementHappened) && accumTested < accumTestedMax && dendriteShifted < dendriteShiftedMax)
 	{
 		++accumTested;
 		uint32_t isExist = ((uint32_t*)m_accumulatorCurrent)[0]; // check virtual methods table
@@ -281,19 +295,23 @@ void ConditionedReflexCreatorNeuron::Tick()
 				}
 			}
 		}
-		if (m_reinforcementsCount < NervousSystem::Instance()->GetReinforcementCount())
-		{
-			++m_reinforcementsCount;
-			m_conditionedReflexCurrent->Init(m_dendrite, m_excitation);
-			++m_conditionedReflexCurrent;
-			assert(m_conditionedReflexCurrent < m_conditionedReflexEnd); // TMP
-		}
 		++m_accumulatorCurrent;
 		if (m_accumulatorCurrent >= m_accumulatorEnd)
 		{
 			m_accumulatorCurrent = m_accumulatorBegin;
 		}
 	}
+
+	if (m_reinforcementsCount < NervousSystem::Instance()->GetReinforcementCount())
+	{
+		++m_reinforcementsCount;
+		m_conditionedReflexCurrent->Init(m_dendrite, m_excitation);
+		++m_conditionedReflexCurrent;
+		assert(m_conditionedReflexCurrent < m_conditionedReflexEnd); // TMP
+	}
+	int isTimeOdd = NSNamespace::GetNSTime() % 2;
+	m_dendriteOut[isTimeOdd] = m_dendrite;
+	m_excitationOut[isTimeOdd] = m_excitation;
 }
 
 void ConditionedReflexNeuron::Init(std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> &dendrite, std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> &accumulatedExcitation)
@@ -305,6 +323,26 @@ void ConditionedReflexNeuron::Init(std::array<uint32_t, CONDITIONED_REFLEX_DENDR
 
 void ConditionedReflexNeuron::Tick()
 {
+	if (m_isActive)
+	{
+		ConditionedReflexDendritesArray dendritesCur = NSNamespace::GetConditionedReflexCreatorNeuron()->GetDendritesArray();
+		uint32_t error = 0;
+		for (int ii = dendritesCur.size() - 1; ii >= 0; --ii)
+		{
+			uint32_t weight = (ii + 5);
+			uint32_t errorCur = weight * 30;
+			for (int jj = m_dendrite.size() - 1; jj >= 0; --jj)
+			{
+				if (dendritesCur[ii] == m_dendrite[jj])
+				{
+					errorCur = weight * abs(ii - jj);
+				}
+			}
+			error += errorCur;
+		}
+		NervousSystem::Instance()->SetConditionedTmpStat(error);
+		//ConditionedReflexExitationArray exitation = NSNamespace::GetConditionedReflexCreatorNeuron()->GetExcitationArray();
+	}
 	//assert(m_debugCheckTime != NSNamespace::GetNSTime()); // to check Tick calls once per quantum of time
 	//m_debugCheckTime = NSNamespace::GetNSTime();
 }
@@ -318,10 +356,20 @@ void ConditionedReflexContainerNeuron::Init(ConditionedReflexNeuron *begin, Cond
 
 void ConditionedReflexContainerNeuron::Tick()
 {
+	if (NervousSystem::Instance()->IsReinforcementGrowth())
+	{
+		return;
+	}
 	m_conditionedReflexCurrent->Tick();
 	m_conditionedReflexCurrent += CONDITIONED_REFLEX_PER_CONTAINER;
 	if (m_conditionedReflexCurrent >= m_conditionedReflexEnd)
 	{
 		m_conditionedReflexCurrent = m_conditionedReflexBegin;
 	}
+}
+
+void PrognosticNeuron::Init(std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> &dendrite, std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> &accumulatedExcitation)
+{
+	m_dendrite = dendrite;
+	m_excitation = accumulatedExcitation;
 }

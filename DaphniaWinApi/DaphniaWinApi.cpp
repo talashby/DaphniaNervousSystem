@@ -329,9 +329,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 				int32_t reinforcementLevelStat;
 				int32_t reinforcementsCountStat;
-				NervousSystem::Instance()->GetStatisticsParams(reinforcementLevelStat, reinforcementsCountStat);
+				int32_t minConditionedTmp;
+				NervousSystem::Instance()->GetStatisticsParams(reinforcementLevelStat, reinforcementsCountStat, minConditionedTmp);
 				strOut += "\nReinforcement Level: " + std::to_string(reinforcementLevelStat);
 				strOut += "\nReinforcemens Counter: " + std::to_string(reinforcementsCountStat);
+				strOut += "\nminConditionedTmp: " + std::to_string(minConditionedTmp);
 			}
 			DrawText(hdc, strOut.c_str(), (int)strOut.length(), &rc, DT_LEFT);
 		}

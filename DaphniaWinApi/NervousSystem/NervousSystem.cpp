@@ -279,11 +279,12 @@ bool NervousSystem::IsSimulationRunning() const
 	return s_isSimulationRunning;
 }
 
-void NervousSystem::GetStatisticsParams(int32_t &reinforcementLevelStat, int32_t &reinforcementsCountStat) const
+void NervousSystem::GetStatisticsParams(int32_t &reinforcementLevelStat, int32_t &reinforcementsCountStat, int32_t &minConditionedTmp) const
 {
 	std::lock_guard<std::mutex> guard(s_statisticsMutex);
 	reinforcementLevelStat = m_reinforcementLevelStat;
 	reinforcementsCountStat = m_reinforcementsCountStat;
+	minConditionedTmp = m_minConditionedTmpStat;
 }
 
 int32_t NervousSystem::GetReinforcementCount() const
@@ -343,6 +344,25 @@ void NervousSystem::PhotonReceived(uint8_t m_posX, uint8_t m_posY, PPh::EtherCol
 	else if (m_color.m_colorB > 0)
 	{
 		s_eyeNetworkBlue[m_posX][m_posY].ExcitatorySynapse();
+	}
+}
+
+bool NervousSystem::IsReinforcementGrowth() const
+{
+	return m_reinforcementLevel > 1000;
+}
+
+bool NervousSystem::IsReinforcementHappened() const
+{
+	return !m_reinforcementZeroTouched;
+}
+
+void NervousSystem::SetConditionedTmpStat(uint32_t val)
+{
+	std::lock_guard<std::mutex> guard(s_statisticsMutex);
+	if (-1 == m_minConditionedTmpStat || val < m_minConditionedTmpStat)
+	{
+		m_minConditionedTmpStat = val;
 	}
 }
 

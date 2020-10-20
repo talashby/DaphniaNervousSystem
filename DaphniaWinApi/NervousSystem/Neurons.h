@@ -40,7 +40,8 @@ protected:
 		ExcitationAccumulatorNeuron,
 		ConditionedReflexCreatorNeuron,
 		ConditionedReflexNeuron,
-		ConditionedReflexContainerNeuron
+		ConditionedReflexContainerNeuron,
+		PrognosticNeuron
 	};
 };
 
@@ -148,6 +149,9 @@ private:
 	int32_t m_reflexCreatorDendriteIndex; // used by ConditionedReflexCreatorNeuron only
 };
 
+typedef std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> ConditionedReflexDendritesArray;
+typedef std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> ConditionedReflexExitationArray;
+
 class ConditionedReflexCreatorNeuron : public Neuron
 {
 public:
@@ -157,24 +161,15 @@ public:
 	uint8_t GetType() override { return GetTypeStatic(); }
 	void Init(ExcitationAccumulatorNeuron *begin, ExcitationAccumulatorNeuron *end,
 		ConditionedReflexNeuron *beginCond, ConditionedReflexNeuron *endCond);
-
-	/*bool CheckPriority()
-	{
-		for (uint32_t ii=0; ii<m_excitation.size()-1; ++ii)
-		{
-			if (m_excitation[ii] > m_excitation[ii + 1])
-			{
-				return false;
-			}
-		}
-		return true;
-	}*/
-
+	ConditionedReflexDendritesArray GetDendritesArray() const; // for other threads
+	ConditionedReflexExitationArray GetExcitationArray() const; // for other threads
 	void Tick() override;
 
 private:
-	std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> m_dendrite; // read corresponding axon
-	std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> m_excitation; // max: ExcitationAccumulationTime * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000 quantum of time
+	ConditionedReflexDendritesArray m_dendrite; // read corresponding axon
+	ConditionedReflexDendritesArray m_dendriteOut[2];
+	ConditionedReflexExitationArray m_excitation; // max: ExcitationAccumulationTime * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000 quantum of time
+	ConditionedReflexExitationArray m_excitationOut[2];
 	ExcitationAccumulatorNeuron *m_accumulatorBegin;
 	ExcitationAccumulatorNeuron *m_accumulatorEnd;
 	ExcitationAccumulatorNeuron *m_accumulatorCurrent;
@@ -218,4 +213,20 @@ private:
 	ConditionedReflexNeuron *m_conditionedReflexCurrent;
 };
 
+class PrognosticNeuron : public Neuron
+{
+public:
+	PrognosticNeuron() = default;
+	virtual ~PrognosticNeuron() = default;
+	constexpr static uint8_t GetTypeStatic() { return static_cast<uint8_t>(NeuronTypes::PrognosticNeuron); }
+	uint8_t GetType() override { return GetTypeStatic(); }
+
+	void Init(std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> &dendrite, std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> &accumulatedExcitation);
+
+	//void Tick() override;
+private:
+	std::atomic<bool> m_isActive;
+	std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> m_dendrite; // read corresponding axon
+	std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> m_excitation; // max: ExcitationAccumulationTime * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000 quantum of time
+};
 
