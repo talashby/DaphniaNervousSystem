@@ -22,6 +22,12 @@ uint32_t Neuron::GetId()
 	return id;
 }
 
+bool Neuron::IsActive() const
+{
+	assert(false);
+	return false;
+}
+
 void SensoryNeuron::Init()
 {
 	m_reinforcementStorage = m_reinforcementStorageMax;
@@ -94,6 +100,12 @@ void MotorNeuron::Init()
 	m_lastExcitationTime = NSNamespace::GetNSTime();
 }
 
+bool MotorNeuron::IsActive() const
+{
+	int isTimeEven = (NSNamespace::GetNSTime() + 1) % 2;
+	return m_isActive[isTimeEven];
+}
+
 void MotorNeuron::Tick()
 {
 	int isTimeOdd = NSNamespace::GetNSTime() % 2;
@@ -134,12 +146,19 @@ void MotorNeuron::Tick()
 		PPh::ObserverClient::Instance()->SetIsRight(isActive);
 		break;
 	}
+	m_isActive[isTimeOdd] = isActive;
 }
 
 void ExcitationAccumulatorNeuron::Init(uint32_t dendrite)
 {
 	m_dendrite = dendrite;
 	m_reflexCreatorDendriteIndex = -1;
+}
+
+bool ExcitationAccumulatorNeuron::IsMotorNeuron() const
+{
+	Neuron *neuron = NSNamespace::GetNeuronInterface(m_dendrite);
+	return neuron->GetType() == MotorNeuron::GetTypeStatic();
 }
 
 void ExcitationAccumulatorNeuron::Tick()
@@ -326,20 +345,27 @@ void ConditionedReflexNeuron::Tick()
 	if (m_isActive)
 	{
 		ConditionedReflexDendritesArray dendritesCur = NSNamespace::GetConditionedReflexCreatorNeuron()->GetDendritesArray();
+		ConditionedReflexExitationArray exitationCur = NSNamespace::GetConditionedReflexCreatorNeuron()->GetExcitationArray();
 		uint32_t error = 0;
-		for (int ii = dendritesCur.size() - 1; ii >= 0; --ii)
+		for (int ii = m_dendrite.size() - 1; ii >= 0; --ii)
 		{
-			uint32_t weight = (ii + 5);
-			uint32_t errorCur = weight * 30;
-			for (int jj = m_dendrite.size() - 1; jj >= 0; --jj)
+			ExcitationAccumulatorNeuron *neuron = (ExcitationAccumulatorNeuron*)NSNamespace::GetNeuronInterface(m_dendrite[ii]);
+			if (neuron->IsMotorNeuron())
 			{
-				if (dendritesCur[ii] == m_dendrite[jj])
+				continue;
+			}
+			//uint32_t weight = (ii + 5) * (ii + 5);
+			uint32_t errorCur = 1000*1000;
+			for (int jj = dendritesCur.size() - 1; jj >= 0; --jj)
+			{
+				if (m_dendrite[ii] == dendritesCur[jj])
 				{
-					errorCur = weight * abs(ii - jj);
+					errorCur = (m_excitation[ii] - exitationCur[jj])*(m_excitation[ii] - exitationCur[jj]);
 				}
 			}
 			error += errorCur;
 		}
+		error /= 20 * 1000;
 		NervousSystem::Instance()->SetConditionedTmpStat(error);
 		//ConditionedReflexExitationArray exitation = NSNamespace::GetConditionedReflexCreatorNeuron()->GetExcitationArray();
 	}

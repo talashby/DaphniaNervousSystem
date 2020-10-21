@@ -20,10 +20,7 @@ public:
 	virtual void Init() {}
 	virtual void Tick() {}
 
-	virtual bool IsActive() const
-	{
-		return false;
-	}
+	virtual bool IsActive() const;
 
 	virtual uint8_t GetType() = 0;
 	uint32_t GetId();
@@ -114,6 +111,8 @@ public:
 	uint8_t GetType() override { return GetTypeStatic(); }
 	void Init() override;
 
+	bool IsActive() const override;
+
 	void Tick() override;
 
 private:
@@ -123,6 +122,7 @@ private:
 	uint64_t m_lastExcitationTime;
 	uint32_t m_spontaneusActivityTimeStart;
 	uint64_t m_spontaneusActivityTimeFinishAbs;
+	bool m_isActive[2];
 };
 
 class ExcitationAccumulatorNeuron : public Neuron
@@ -133,6 +133,7 @@ public:
 	constexpr static uint8_t GetTypeStatic() { return static_cast<uint8_t>(NeuronTypes::ExcitationAccumulatorNeuron); }
 	uint8_t GetType() override { return GetTypeStatic(); }
 	void Init(uint32_t dendrite);
+	bool IsMotorNeuron() const;
 
 	void Tick() override;
 

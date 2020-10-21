@@ -21,7 +21,7 @@ constexpr int32_t REINFORCEMENT_FOR_CONDITIONED_REFLEX = 20000; // units
 //
 
 static NervousSystem* s_nervousSystem = nullptr;
-static std::array<std::thread, 3> s_threads;
+static std::array<std::thread, 4> s_threads;
 static std::array<std::pair<uint32_t, uint32_t>, s_threads.size()> s_threadNeurons; // [first neuron; last neuron)
 static std::atomic<bool> s_isSimulationRunning = false;
 static std::atomic<uint64_t> s_time = 0; // absolute universe time
