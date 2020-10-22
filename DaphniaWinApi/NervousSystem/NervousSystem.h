@@ -13,6 +13,7 @@ namespace NSNamespace
 	void AddReinforcement(uint32_t val);
 	Neuron* GetNeuronInterface(uint32_t neuronId);
 	ConditionedReflexCreatorNeuron* GetConditionedReflexCreatorNeuron();
+	uint32_t GetAccumulatorExitationNeuronNum();
 }
 
 class NervousSystem
@@ -28,11 +29,12 @@ public:
 	bool IsSimulationRunning() const;
 	void GetStatisticsParams(int32_t &reinforcementLevelStat, int32_t &reinforcementsCountStat, int32_t &minConditionedTmp) const;
 	int32_t GetReinforcementCount() const; // thread safe changed on NextTick
+	int32_t GetReinforcementLevel() const; // thread safe changed on NextTick
 	uint64_t GetTime() const;
 	void NextTick(uint64_t timeOfTheUniverse);
 
 	void PhotonReceived(uint8_t m_posX, uint8_t m_posY, PPh::EtherColor m_color);
-	bool IsReinforcementGrowth() const;
+	bool IsReinforcementLevelLow() const;
 	bool IsReinforcementHappened() const;
 
 	void SetConditionedTmpStat(uint32_t val);

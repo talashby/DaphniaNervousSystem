@@ -234,15 +234,25 @@ ConditionedReflexExitationArray ConditionedReflexCreatorNeuron::GetExcitationArr
 	return m_excitationOut[isTimeEven];
 }
 
-void ConditionedReflexCreatorNeuron::Tick()
+void ConditionedReflexCreatorNeuron::AccumulateExcitation(bool isFullCircle)
 {
 	uint32_t accumTested = 0;
-	const uint32_t accumTestedMax = 10;
+	uint32_t accumTestedMax = 10;
 	uint32_t dendriteShifted = 0;
-	const uint32_t dendriteShiftedMax = 100;
-	bool isReinforcementGrowth = NervousSystem::Instance()->IsReinforcementGrowth();
+	uint32_t dendriteShiftedMax = 100;
+	bool isReinforcementLow = NervousSystem::Instance()->IsReinforcementLevelLow();
 	bool isReinforcementHappened = NervousSystem::Instance()->IsReinforcementHappened();
-	while ((!isReinforcementGrowth || isReinforcementHappened) && accumTested < accumTestedMax && dendriteShifted < dendriteShiftedMax)
+
+	if (isFullCircle) // used to create prognostic neuron
+	{
+		accumTestedMax = NSNamespace::GetAccumulatorExitationNeuronNum();
+		dendriteShiftedMax = -1;
+		isReinforcementLow = true;
+		isReinforcementHappened = true;
+	}
+	
+
+	while ((isReinforcementLow || isReinforcementHappened) && accumTested < accumTestedMax && dendriteShifted < dendriteShiftedMax)
 	{
 		++accumTested;
 		uint32_t isExist = ((uint32_t*)m_accumulatorCurrent)[0]; // check virtual methods table
@@ -320,13 +330,21 @@ void ConditionedReflexCreatorNeuron::Tick()
 			m_accumulatorCurrent = m_accumulatorBegin;
 		}
 	}
+}
 
+void ConditionedReflexCreatorNeuron::Tick()
+{
 	if (m_reinforcementsCount < NervousSystem::Instance()->GetReinforcementCount())
 	{
 		++m_reinforcementsCount;
 		m_conditionedReflexCurrent->Init(m_dendrite, m_excitation);
 		++m_conditionedReflexCurrent;
 		assert(m_conditionedReflexCurrent < m_conditionedReflexEnd); // TMP
+		AccumulateExcitation(true);
+	}
+	else
+	{
+		AccumulateExcitation(false);
 	}
 	int isTimeOdd = NSNamespace::GetNSTime() % 2;
 	m_dendriteOut[isTimeOdd] = m_dendrite;
@@ -365,7 +383,7 @@ void ConditionedReflexNeuron::Tick()
 			}
 			error += errorCur;
 		}
-		error /= 20 * 1000;
+		error /= m_excitation.size() * 100;
 		NervousSystem::Instance()->SetConditionedTmpStat(error);
 		//ConditionedReflexExitationArray exitation = NSNamespace::GetConditionedReflexCreatorNeuron()->GetExcitationArray();
 	}
@@ -382,7 +400,7 @@ void ConditionedReflexContainerNeuron::Init(ConditionedReflexNeuron *begin, Cond
 
 void ConditionedReflexContainerNeuron::Tick()
 {
-	if (NervousSystem::Instance()->IsReinforcementGrowth())
+	if (!NervousSystem::Instance()->IsReinforcementLevelLow())
 	{
 		return;
 	}

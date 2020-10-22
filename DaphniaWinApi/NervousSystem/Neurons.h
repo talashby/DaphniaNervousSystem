@@ -167,6 +167,8 @@ public:
 	void Tick() override;
 
 private:
+	void AccumulateExcitation(bool isFullCircle);
+
 	ConditionedReflexDendritesArray m_dendrite; // read corresponding axon
 	ConditionedReflexDendritesArray m_dendriteOut[2];
 	ConditionedReflexExitationArray m_excitation; // max: ExcitationAccumulationTime * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000 quantum of time

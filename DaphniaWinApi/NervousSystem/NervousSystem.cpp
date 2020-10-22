@@ -150,6 +150,11 @@ namespace NSNamespace
 		return &s_conditionedReflexCreatorNeuron;
 	}
 
+	uint32_t GetAccumulatorExitationNeuronNum()
+	{
+		return s_excitationAccumulatorNetwork.size();
+	}
+
 	void AddReinforcement(uint32_t val)
 	{
 		s_reinforcementStorageCurrentTick.fetch_add(val, std::memory_order_relaxed);
@@ -292,6 +297,11 @@ int32_t NervousSystem::GetReinforcementCount() const
 	return m_reinforcementsCountStat;
 }
 
+int32_t NervousSystem::GetReinforcementLevel() const
+{
+	return m_reinforcementLevelStat;
+}
+
 uint64_t NervousSystem::GetTime() const
 {
 	return s_time;
@@ -347,9 +357,9 @@ void NervousSystem::PhotonReceived(uint8_t m_posX, uint8_t m_posY, PPh::EtherCol
 	}
 }
 
-bool NervousSystem::IsReinforcementGrowth() const
+bool NervousSystem::IsReinforcementLevelLow() const
 {
-	return m_reinforcementLevel > 1000;
+	return m_reinforcementLevel <= 1000;
 }
 
 bool NervousSystem::IsReinforcementHappened() const
