@@ -370,7 +370,7 @@ bool NervousSystem::IsReinforcementHappened() const
 void NervousSystem::SetConditionedTmpStat(uint32_t val)
 {
 	std::lock_guard<std::mutex> guard(s_statisticsMutex);
-	if (-1 == m_minConditionedTmpStat || val < m_minConditionedTmpStat)
+	if (-1 == m_minConditionedTmpStat || (int32_t)val < m_minConditionedTmpStat)
 	{
 		m_minConditionedTmpStat = val;
 	}

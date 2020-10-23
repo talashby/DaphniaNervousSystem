@@ -5,6 +5,7 @@
 #include <atomic>
 
 class ConditionedReflexNeuron;
+class PrognosticNeuron;
 
 constexpr int32_t CONDITIONED_REFLEX_DENDRITES_NUM = 20; // units
 constexpr uint32_t CONDITIONED_REFLEX_PER_CONTAINER = 100; // units
@@ -21,6 +22,7 @@ public:
 	virtual void Tick() {}
 
 	virtual bool IsActive() const;
+	virtual bool IsReinforcementActive() const { return false; }
 
 	virtual uint8_t GetType() = 0;
 	uint32_t GetId();
@@ -54,8 +56,10 @@ public:
 	void ExcitatorySynapse();
 	constexpr static uint8_t GetTypeStatic() { return static_cast<uint8_t>(NeuronTypes::SensoryNeuron); }
 	uint8_t GetType() override { return GetTypeStatic(); }
+	bool IsReinforcementActive() const override;
 
 	void Tick() override;
+
 
 private:
 	static const uint32_t m_reinforcementStorageMax = 5;
@@ -115,6 +119,8 @@ public:
 
 	void Tick() override;
 
+	void ExcitatorySynapse();
+
 private:
 	uint8_t m_dendrite[2]; // 0-254 - excitation 255 - connection lost
 	uint8_t m_axon[2]; // 0-254 - excitation 255 - connection lost
@@ -134,6 +140,7 @@ public:
 	uint8_t GetType() override { return GetTypeStatic(); }
 	void Init(uint32_t dendrite);
 	bool IsMotorNeuron() const;
+	uint32_t GetDendriteNeuron() const;
 
 	void Tick() override;
 
@@ -166,6 +173,8 @@ public:
 	ConditionedReflexExitationArray GetExcitationArray() const; // for other threads
 	void Tick() override;
 
+	void SetConditionedReflex(ConditionedReflexNeuron *reflex);
+	ConditionedReflexNeuron* GetConditionedReflexPoceed() const;
 private:
 	void AccumulateExcitation(bool isFullCircle);
 
@@ -176,10 +185,18 @@ private:
 	ExcitationAccumulatorNeuron *m_accumulatorBegin;
 	ExcitationAccumulatorNeuron *m_accumulatorEnd;
 	ExcitationAccumulatorNeuron *m_accumulatorCurrent;
+
 	ConditionedReflexNeuron *m_conditionedReflexBegin;
 	ConditionedReflexNeuron *m_conditionedReflexCurrent;
 	ConditionedReflexNeuron *m_conditionedReflexEnd;
+
+	PrognosticNeuron *m_prognosticBegin;
+	PrognosticNeuron *m_prognosticCurrent;
+	PrognosticNeuron *m_prognosticEnd;
+
 	int32_t m_reinforcementsCount;
+	std::atomic<ConditionedReflexNeuron*> m_conditionedReflexProceedIn;
+	std::atomic <ConditionedReflexNeuron*> m_conditionedReflexProceed;
 };
 
 class ConditionedReflexNeuron : public Neuron
@@ -193,10 +210,13 @@ public:
 	void Init(std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> &dendrite, std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> &accumulatedExcitation);
 
 	void Tick() override;
+	void SetPrognosticNeuron(const PrognosticNeuron *prognosticNeuron);
 private:
-	std::atomic<bool> m_isActive;
+	std::atomic<bool> m_isInitialized;
 	std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> m_dendrite; // read corresponding axon
 	std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> m_excitation; // max: ExcitationAccumulationTime * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000 quantum of time
+
+	const PrognosticNeuron *m_prognosticNeuron;
 	//uint64_t m_debugCheckTime = -1; // to check Tick calls once per quantum of time
 };
 
@@ -226,6 +246,7 @@ public:
 
 	void Init(std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> &dendrite, std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> &accumulatedExcitation);
 
+	uint32_t GetPrognosticReinforcement() const;
 	//void Tick() override;
 private:
 	std::atomic<bool> m_isActive;
