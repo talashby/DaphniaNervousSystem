@@ -363,7 +363,7 @@ void ConditionedReflexCreatorNeuron::Tick()
 		{
 			m_conditionedReflexCurrent->Init(m_dendrite, m_excitation);
 			assert(m_conditionedReflexCurrent < m_conditionedReflexEnd); // TMP
-			AccumulateExcitation(true);
+			AccumulateExcitation(true); // accumulate all excitations
 			m_prognosticCurrent->Init(m_dendrite, m_excitation);
 			m_conditionedReflexCurrent->SetPrognosticNeuron(m_prognosticCurrent);
 			++m_prognosticCurrent;
@@ -375,6 +375,10 @@ void ConditionedReflexCreatorNeuron::Tick()
 		if (!m_conditionedReflexProceed)
 		{
 			m_conditionedReflexProceed.store(m_conditionedReflexProceedIn.load());
+		}
+		else
+		{
+			m_conditionedReflexProceed.load()->Tick();
 		}
 		AccumulateExcitation(false);
 	}
@@ -388,7 +392,7 @@ void ConditionedReflexCreatorNeuron::SetConditionedReflex(ConditionedReflexNeuro
 	m_conditionedReflexProceedIn.store(reflex);
 }
 
-ConditionedReflexNeuron* ConditionedReflexCreatorNeuron::GetConditionedReflexPoceed() const
+ConditionedReflexNeuron* ConditionedReflexCreatorNeuron::GetConditionedReflexProceed() const
 {
 	return m_conditionedReflexProceed.load();
 }
@@ -398,13 +402,14 @@ void ConditionedReflexNeuron::Init(std::array<uint32_t, CONDITIONED_REFLEX_DENDR
 	m_dendrite = dendrite;
 	m_excitation = accumulatedExcitation;
 	m_isInitialized = true;
+	m_proceedTimeMax = MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME_DURATION;
 }
 
 void ConditionedReflexNeuron::Tick()
 {
 	if (m_isInitialized)
 	{
-		if (this == NSNamespace::GetConditionedReflexCreatorNeuron()->GetConditionedReflexPoceed())
+		if (this == NSNamespace::GetConditionedReflexCreatorNeuron()->GetConditionedReflexProceed())
 		{
 			for (int ii = m_dendrite.size() - 1; ii >= 0; --ii)
 			{
@@ -415,6 +420,11 @@ void ConditionedReflexNeuron::Tick()
 					MotorNeuron *motorNeuron = (MotorNeuron*)NSNamespace::GetNeuronInterface(motorNeuronId);
 					motorNeuron->ExcitatorySynapse();
 				}
+			}
+			ConditionedReflexDendritesArray dendritesArray = NSNamespace::GetConditionedReflexCreatorNeuron()->GetDendritesArray();
+			--m_proceedTime;
+			if (!m_proceedTime)
+			{
 			}
 		}
 		else
@@ -445,6 +455,7 @@ void ConditionedReflexNeuron::Tick()
 			if (prognosticReinforcement > CONDITIONED_REFLEX_DENDRITES_NUM / 2)
 			{
 				NSNamespace::GetConditionedReflexCreatorNeuron()->SetConditionedReflex(this);
+				m_proceedTime = m_proceedTimeMax;
 			}
 		}
 	}
@@ -466,7 +477,7 @@ void ConditionedReflexContainerNeuron::Init(ConditionedReflexNeuron *begin, Cond
 
 void ConditionedReflexContainerNeuron::Tick()
 {
-	if (!NervousSystem::Instance()->IsReinforcementLevelLow())
+	if (!NervousSystem::Instance()->IsReinforcementLevelLow() || NSNamespace::GetConditionedReflexCreatorNeuron()->GetConditionedReflexProceed())
 	{
 		return;
 	}

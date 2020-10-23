@@ -174,7 +174,7 @@ public:
 	void Tick() override;
 
 	void SetConditionedReflex(ConditionedReflexNeuron *reflex);
-	ConditionedReflexNeuron* GetConditionedReflexPoceed() const;
+	ConditionedReflexNeuron* GetConditionedReflexProceed() const;
 private:
 	void AccumulateExcitation(bool isFullCircle);
 
@@ -215,6 +215,8 @@ private:
 	std::atomic<bool> m_isInitialized;
 	std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> m_dendrite; // read corresponding axon
 	std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> m_excitation; // max: ExcitationAccumulationTime * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000 quantum of time
+	uint32_t m_proceedTime;
+	uint32_t m_proceedTimeMax;
 
 	const PrognosticNeuron *m_prognosticNeuron;
 	//uint64_t m_debugCheckTime = -1; // to check Tick calls once per quantum of time
