@@ -27,7 +27,8 @@ public:
 	void StartSimulation(uint64_t timeOfTheUniverse);
 	void StopSimulation();
 	bool IsSimulationRunning() const;
-	void GetStatisticsParams(int32_t &reinforcementLevelStat, int32_t &reinforcementsCountStat, int32_t &minConditionedTmp) const;
+	void GetStatisticsParams(int32_t &reinforcementLevelStat, int32_t &reinforcementsCountStat, int32_t &minConditionedTmp,
+		uint32_t &minNervousSystemTiming, uint32_t &maxNervousSystemTiming, uint32_t &conditionedReflexCreatorTiming) const;
 	int32_t GetReinforcementCount() const; // thread safe changed on NextTick
 	int32_t GetReinforcementLevel() const; // thread safe changed on NextTick
 	uint64_t GetTime() const;
@@ -38,6 +39,16 @@ public:
 	bool IsReinforcementHappened() const;
 
 	void SetConditionedTmpStat(uint32_t val);
+
+	enum class NervousSystemStatus
+	{
+		Relaxing = 0,
+		SpontaneousActivity,
+		ConditionedReflexProceed
+	};
+
+	const char* GetStatus() const;
+	void SetStatus(NervousSystemStatus status);
 
 private:
 	//int32_t GetReinforcementLevel() const;
@@ -52,5 +63,8 @@ private:
 	int32_t m_reinforcementLevelStat = 0;
 	int32_t m_reinforcementsCountStat = 0;
 	int32_t m_minConditionedTmpStat = -1;
+	int64_t m_lastTime;
+	uint64_t m_lastTimeUniverse;
+	uint32_t m_quantumOfTimePerSecond;
 };
 

@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <xutility>
 
+#define HIGH_PRECISION_STATS 1
+
 // constants
 constexpr uint32_t CONDITIONED_REFLEX_CONTAINER_NUM = 100; // units
 constexpr int32_t REINFORCEMENT_FOR_CONDITIONED_REFLEX = 20000; // units
@@ -28,11 +30,11 @@ static std::atomic<uint64_t> s_time = 0; // absolute universe time
 static std::atomic<uint32_t> s_waitThreadsCount = 0; // thread synchronization variable
 static std::atomic<uint32_t> s_reinforcementStorageCurrentTick = 0; // store reinforcements in current tick
 
+// stats
 static std::mutex s_statisticsMutex;
-
-
-
-
+static std::vector<uint32_t> s_timingsNervousSystemThreads;
+static std::vector<uint32_t> s_tickTimeMusNervousSystemThreads;
+std::atomic<uint32_t> s_status; // NervousSystemStatus
 
 
 
@@ -43,6 +45,7 @@ static std::array<std::array<SensoryNeuronBlue, PPh::GetObserverEyeSize()>, PPh:
 static std::array<MotorNeuron, 3> s_motorNetwork; // 0 - forward, 1 - left, 2 - right
 static std::array<ExcitationAccumulatorNeuron, EYE_COLOR_NEURONS_NUM*3 + s_motorNetwork.size()> s_excitationAccumulatorNetwork;
 static std::array<ConditionedReflexNeuron, CONDITIONED_REFLEX_CONTAINER_NUM*CONDITIONED_REFLEX_PER_CONTAINER> s_conditionedReflexNetwork;
+static std::array<PrognosticNeuron, CONDITIONED_REFLEX_CONTAINER_NUM*CONDITIONED_REFLEX_PER_CONTAINER> s_prognosticNetwork;
 static std::array<ConditionedReflexContainerNeuron, CONDITIONED_REFLEX_CONTAINER_NUM> s_conditionedReflexContainerNetwork;
 static ConditionedReflexCreatorNeuron s_conditionedReflexCreatorNeuron;
 
@@ -179,12 +182,21 @@ void NervousSystem::Init()
 		firstNeuronNum = el.m_endNeuronNum;
 	}
 
-	uint32_t neuronsNum = s_networksMetadata.back().m_endNeuronNum;
-	uint32_t step = neuronsNum / (uint32_t)s_threads.size();
-	uint32_t remain = neuronsNum - step * (uint32_t)s_threads.size();
+#ifdef HIGH_PRECISION_STATS
+	s_timingsNervousSystemThreads.resize(s_threads.size());
+	s_tickTimeMusNervousSystemThreads.resize(s_threads.size());
+#endif
+
+	static_assert(s_threads.size() > 1);
+	uint32_t threadsNumSpecial = s_threads.size()-1; // last thread for ConditionedReflexCreatorNeuron
+	uint32_t neuronsNum = s_networksMetadata[s_networksMetadata.size()-2].m_endNeuronNum;
+	assert(s_networksMetadata.back().m_endNeuronNum - neuronsNum == 1); // last neuron should be ConditionedReflexCreatorNeuron
+	uint32_t step = neuronsNum / threadsNumSpecial;
+	uint32_t remain = neuronsNum - step * threadsNumSpecial;
 	uint32_t posBegin = 0;
-	for (std::pair<uint32_t, uint32_t> &pair : s_threadNeurons)
+	for (uint32_t ii = 0; ii < s_threadNeurons.size()-1; ++ii)
 	{
+		std::pair<uint32_t, uint32_t> &pair = s_threadNeurons[ii];
 		int32_t posEnd = posBegin + step;
 		if (0 < remain)
 		{
@@ -195,6 +207,8 @@ void NervousSystem::Init()
 		pair.second = posEnd;
 		posBegin = posEnd;
 	}
+	s_threadNeurons.back().first = s_networksMetadata.back().m_beginNeuronNum; // last thread for ConditionedReflexCreatorNeuron
+	s_threadNeurons.back().second = s_networksMetadata.back().m_endNeuronNum; // last thread for ConditionedReflexCreatorNeuron
 	 
 	uint32_t excitationAccumulatorNetworkIndex = 0;
 	for (uint32_t ii=0; ii<EYE_COLOR_NEURONS_NUM; ++ii)
@@ -237,7 +251,8 @@ void NervousSystem::Init()
 	}
 	assert(s_excitationAccumulatorNetwork.size() == excitationAccumulatorNetworkIndex);
 	s_conditionedReflexCreatorNeuron.Init(&s_excitationAccumulatorNetwork[0], &s_excitationAccumulatorNetwork[0] + s_excitationAccumulatorNetwork.size(),
-		&s_conditionedReflexNetwork[0], &s_conditionedReflexNetwork[0] + s_conditionedReflexNetwork.size());
+		&s_conditionedReflexNetwork[0], &s_conditionedReflexNetwork[0] + s_conditionedReflexNetwork.size(),
+		&s_prognosticNetwork[0], &s_prognosticNetwork[0] + s_prognosticNetwork.size());
 
 	s_nervousSystem = new NervousSystem();
 }
@@ -251,6 +266,9 @@ void NervousSystem::StartSimulation(uint64_t timeOfTheUniverse)
 {
 	s_isSimulationRunning = true;
 	s_time = timeOfTheUniverse;
+	m_lastTime = PPh::GetTimeMs();
+	m_lastTimeUniverse = timeOfTheUniverse;
+
 	for (const auto &metadata : s_networksMetadata)
 	{
 		for (uint32_t jj = metadata.m_beginNeuronNum; jj < metadata.m_endNeuronNum; ++jj)
@@ -284,12 +302,22 @@ bool NervousSystem::IsSimulationRunning() const
 	return s_isSimulationRunning;
 }
 
-void NervousSystem::GetStatisticsParams(int32_t &reinforcementLevelStat, int32_t &reinforcementsCountStat, int32_t &minConditionedTmp) const
+void NervousSystem::GetStatisticsParams(int32_t &reinforcementLevelStat, int32_t &reinforcementsCountStat,
+	int32_t &minConditionedTmp, uint32_t &minNervousSystemTiming, uint32_t &maxNervousSystemTiming,
+	uint32_t &conditionedReflexCreatorTiming) const
 {
 	std::lock_guard<std::mutex> guard(s_statisticsMutex);
 	reinforcementLevelStat = m_reinforcementLevelStat;
 	reinforcementsCountStat = m_reinforcementsCountStat;
 	minConditionedTmp = m_minConditionedTmpStat;
+	minNervousSystemTiming = std::numeric_limits<uint32_t>::max();
+	maxNervousSystemTiming = 0;
+	for (uint32_t ii = 0; ii < s_tickTimeMusNervousSystemThreads.size()-1; ++ii)
+	{
+		minNervousSystemTiming = std::min(s_tickTimeMusNervousSystemThreads[ii], minNervousSystemTiming);
+		maxNervousSystemTiming = std::max(s_tickTimeMusNervousSystemThreads[ii], maxNervousSystemTiming);
+	}
+	conditionedReflexCreatorTiming = s_tickTimeMusNervousSystemThreads[s_tickTimeMusNervousSystemThreads.size() - 1];
 }
 
 int32_t NervousSystem::GetReinforcementCount() const
@@ -336,6 +364,25 @@ void NervousSystem::NextTick(uint64_t timeOfTheUniverse)
 			}
 			m_reinforcementLevelStat = m_reinforcementLevel;
 			s_waitThreadsCount = (uint32_t)s_threads.size();
+
+			if (PPh::GetTimeMs() - m_lastTime >= 1000 && s_time != m_lastTimeUniverse)
+			{
+				m_quantumOfTimePerSecond = (uint32_t)(s_time - m_lastTimeUniverse);
+#ifdef HIGH_PRECISION_STATS
+				std::lock_guard<std::mutex> guard(s_statisticsMutex);
+				for (uint32_t ii = 0; ii < s_timingsNervousSystemThreads.size(); ++ii)
+				{
+					if (s_timingsNervousSystemThreads[ii] > 0)
+					{
+						s_tickTimeMusNervousSystemThreads[ii] = s_timingsNervousSystemThreads[ii] / m_quantumOfTimePerSecond;
+						s_timingsNervousSystemThreads[ii] = 0;
+					}
+				}
+#endif
+				m_lastTime = PPh::GetTimeMs();
+				m_lastTimeUniverse = s_time;
+			}
+
 			++s_time;
 		}
 	}
@@ -376,6 +423,30 @@ void NervousSystem::SetConditionedTmpStat(uint32_t val)
 	}
 }
 
+const char* NervousSystem::GetStatus() const
+{
+	NervousSystemStatus status = static_cast<NervousSystemStatus>(s_status.load());
+	switch (status)
+	{
+	case NervousSystemStatus::Relaxing:
+		return "Relaxing";
+	case NervousSystemStatus::SpontaneousActivity:
+		return "SpontaneousActivity";
+	case NervousSystemStatus::ConditionedReflexProceed:
+		return "ConditionedReflexProceed";
+	default:
+		assert(false);
+		break;
+	}
+	
+	return "Relaxing";
+}
+
+void NervousSystem::SetStatus(NervousSystemStatus status)
+{
+	s_status = static_cast<uint32_t>(status);
+}
+
 void NervousSystemThread(uint32_t threadNum)
 {
 	assert(s_threadNeurons.size() > threadNum);
@@ -402,6 +473,9 @@ void NervousSystemThread(uint32_t threadNum)
 	uint32_t endLocalNeuronNum = s_threadNeurons[threadNum].second;
 	while (s_isSimulationRunning)
 	{
+#ifdef HIGH_PRECISION_STATS
+		auto beginTime = std::chrono::high_resolution_clock::now();
+#endif
 		int32_t isTimeOdd = s_time % 2;
 		uint32_t beginLocalNeuronNum = s_threadNeurons[threadNum].first;
 		for (uint32_t ii = beginNetworkMetadata; ii < endNetworkMetadata; ++ii)
@@ -416,6 +490,11 @@ void NervousSystemThread(uint32_t threadNum)
 				neuron->Tick();
 			}
 		}
+#ifdef HIGH_PRECISION_STATS
+		auto endTime = std::chrono::high_resolution_clock::now();
+		auto dif = endTime - beginTime;
+		s_timingsNervousSystemThreads[threadNum] += (uint32_t)std::chrono::duration_cast<std::chrono::microseconds>(dif).count();
+#endif
 		--s_waitThreadsCount;
 		while (s_time % 2 == isTimeOdd && s_isSimulationRunning)
 		{

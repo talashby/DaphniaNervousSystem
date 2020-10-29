@@ -140,6 +140,7 @@ public:
 	uint8_t GetType() override { return GetTypeStatic(); }
 	void Init(uint32_t dendrite);
 	bool IsMotorNeuron() const;
+	bool IsReinforcementActive() const override;
 	uint32_t GetDendriteNeuron() const;
 
 	void Tick() override;
@@ -168,12 +169,14 @@ public:
 	constexpr static uint8_t GetTypeStatic() { return static_cast<uint8_t>(NeuronTypes::ConditionedReflexCreatorNeuron); }
 	uint8_t GetType() override { return GetTypeStatic(); }
 	void Init(ExcitationAccumulatorNeuron *begin, ExcitationAccumulatorNeuron *end,
-		ConditionedReflexNeuron *beginCond, ConditionedReflexNeuron *endCond);
+		ConditionedReflexNeuron *beginCond, ConditionedReflexNeuron *endCond,
+		PrognosticNeuron *beginPrognostic, PrognosticNeuron *endPrognostic);
 	ConditionedReflexDendritesArray GetDendritesArray() const; // for other threads
 	ConditionedReflexExitationArray GetExcitationArray() const; // for other threads
 	void Tick() override;
 
 	void SetConditionedReflex(ConditionedReflexNeuron *reflex);
+	void FinishConditionedReflex(ConditionedReflexNeuron *reflex);
 	ConditionedReflexNeuron* GetConditionedReflexProceed() const;
 private:
 	void AccumulateExcitation(bool isFullCircle);

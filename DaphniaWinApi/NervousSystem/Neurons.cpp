@@ -127,17 +127,23 @@ void MotorNeuron::Tick()
 		isActive = true;
 		m_lastExcitationTime = NSNamespace::GetNSTime();
 	}
-	if (!m_accumulatedExcitation)
+	if (!m_accumulatedExcitation && !NSNamespace::GetConditionedReflexCreatorNeuron()->GetConditionedReflexProceed())
 	{
 		if (NSNamespace::GetNSTime() - m_lastExcitationTime > m_spontaneusActivityTimeStart)
 		{
 			++m_accumulatedExcitation;
 			m_spontaneusActivityTimeFinishAbs = NSNamespace::GetNSTime() + MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME_DURATION;
 			m_spontaneusActivityTimeStart = MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME * (PPh::Rand32(67) + 66) / 100;
+			NervousSystem::Instance()->SetStatus(NervousSystem::NervousSystemStatus::SpontaneousActivity);
 		}
 		else if (NSNamespace::GetNSTime() < m_spontaneusActivityTimeFinishAbs)
 		{
 			++m_accumulatedExcitation;
+			NervousSystem::Instance()->SetStatus(NervousSystem::NervousSystemStatus::SpontaneousActivity);
+		}
+		else if (NSNamespace::GetNSTime() == m_spontaneusActivityTimeFinishAbs)
+		{
+			NervousSystem::Instance()->SetStatus(NervousSystem::NervousSystemStatus::Relaxing);
 		}
 	}
 
@@ -173,6 +179,12 @@ bool ExcitationAccumulatorNeuron::IsMotorNeuron() const
 {
 	Neuron *neuron = NSNamespace::GetNeuronInterface(m_dendrite);
 	return neuron->GetType() == MotorNeuron::GetTypeStatic();
+}
+
+bool ExcitationAccumulatorNeuron::IsReinforcementActive() const
+{
+	Neuron *neuron = NSNamespace::GetNeuronInterface(m_dendrite);
+	return neuron->IsReinforcementActive();
 }
 
 uint32_t ExcitationAccumulatorNeuron::GetDendriteNeuron() const
@@ -222,7 +234,8 @@ int32_t ExcitationAccumulatorNeuron::GetReflexCreatorDendriteIndex() const // us
 	return m_reflexCreatorDendriteIndex;
 }
 
-void ConditionedReflexCreatorNeuron::Init(ExcitationAccumulatorNeuron *begin, ExcitationAccumulatorNeuron *end, ConditionedReflexNeuron *beginCond, ConditionedReflexNeuron *endCond)
+void ConditionedReflexCreatorNeuron::Init(ExcitationAccumulatorNeuron *begin, ExcitationAccumulatorNeuron *end, ConditionedReflexNeuron *beginCond, ConditionedReflexNeuron *endCond,
+	PrognosticNeuron *beginPrognostic, PrognosticNeuron *endPrognostic)
 {
 	static_assert(EXCITATION_ACCUMULATION_TIME * PPh::CommonParams::QUANTUM_OF_TIME_PER_SECOND / 1000 <= std::numeric_limits<uint16_t>::max());
 
@@ -232,6 +245,9 @@ void ConditionedReflexCreatorNeuron::Init(ExcitationAccumulatorNeuron *begin, Ex
 	m_conditionedReflexBegin = beginCond;
 	m_conditionedReflexCurrent = beginCond;
 	m_conditionedReflexEnd = endCond;
+	m_prognosticBegin = beginPrognostic;
+	m_prognosticCurrent = beginPrognostic;
+	m_prognosticEnd = endPrognostic;
 	assert(m_accumulatorEnd - m_accumulatorBegin > (int32_t)m_dendrite.size());
 	for (uint32_t ii = 0; ii < m_dendrite.size(); ii++)
 	{
@@ -256,22 +272,22 @@ ConditionedReflexExitationArray ConditionedReflexCreatorNeuron::GetExcitationArr
 void ConditionedReflexCreatorNeuron::AccumulateExcitation(bool isFullCircle)
 {
 	uint32_t accumTested = 0;
-	uint32_t accumTestedMax = 10;
-	uint32_t dendriteShifted = 0;
-	uint32_t dendriteShiftedMax = 100;
+	uint32_t accumTestedMax = 200;
+//	uint32_t dendriteShifted = 0;
+//	uint32_t dendriteShiftedMax = 20000;
 	bool isReinforcementLow = NervousSystem::Instance()->IsReinforcementLevelLow();
 	bool isReinforcementHappened = NervousSystem::Instance()->IsReinforcementHappened();
 
 	if (isFullCircle) // used to create prognostic neuron
 	{
 		accumTestedMax = NSNamespace::GetAccumulatorExitationNeuronNum();
-		dendriteShiftedMax = -1;
+		//dendriteShiftedMax = -1;
 		isReinforcementLow = true;
 		isReinforcementHappened = true;
 	}
 	
 
-	while ((isReinforcementLow || isReinforcementHappened || m_conditionedReflexProceed) && accumTested < accumTestedMax && dendriteShifted < dendriteShiftedMax)
+	while ((isReinforcementLow || isReinforcementHappened || m_conditionedReflexProceed) && accumTested < accumTestedMax /*&& dendriteShifted < dendriteShiftedMax*/)
 	{
 		++accumTested;
 		uint32_t isExist = ((uint32_t*)m_accumulatorCurrent)[0]; // check virtual methods table
@@ -313,7 +329,7 @@ void ConditionedReflexCreatorNeuron::AccumulateExcitation(bool isFullCircle)
 					m_dendrite[newDendriteIndex] = m_accumulatorCurrent->GetId();
 					m_excitation[newDendriteIndex] = accumulatedExcitation;
 					m_accumulatorCurrent->SetReflexCreatorDendriteIndex(newDendriteIndex);
-					dendriteShifted += abs(newDendriteIndex - dendriteIndex);
+					//dendriteShifted += abs(newDendriteIndex - dendriteIndex);
 				}
 			}
 			else
@@ -339,7 +355,7 @@ void ConditionedReflexCreatorNeuron::AccumulateExcitation(bool isFullCircle)
 					m_dendrite[newDendriteIndex] = m_accumulatorCurrent->GetId();
 					m_excitation[newDendriteIndex] = accumulatedExcitation;
 					m_accumulatorCurrent->SetReflexCreatorDendriteIndex(newDendriteIndex);
-					dendriteShifted += newDendriteIndex;
+					//dendriteShifted += newDendriteIndex;
 				}
 			}
 		}
@@ -362,12 +378,13 @@ void ConditionedReflexCreatorNeuron::Tick()
 		else
 		{
 			m_conditionedReflexCurrent->Init(m_dendrite, m_excitation);
-			assert(m_conditionedReflexCurrent < m_conditionedReflexEnd); // TMP
 			AccumulateExcitation(true); // accumulate all excitations
 			m_prognosticCurrent->Init(m_dendrite, m_excitation);
 			m_conditionedReflexCurrent->SetPrognosticNeuron(m_prognosticCurrent);
 			++m_prognosticCurrent;
 			++m_conditionedReflexCurrent;
+			assert(m_conditionedReflexCurrent < m_conditionedReflexEnd); // TMP
+			assert(m_prognosticCurrent < m_prognosticEnd); // TMP
 		}
 	}
 	else
@@ -390,6 +407,17 @@ void ConditionedReflexCreatorNeuron::Tick()
 void ConditionedReflexCreatorNeuron::SetConditionedReflex(ConditionedReflexNeuron *reflex)
 {
 	m_conditionedReflexProceedIn.store(reflex);
+}
+
+void ConditionedReflexCreatorNeuron::FinishConditionedReflex(ConditionedReflexNeuron *reflex)
+{
+	assert(m_conditionedReflexProceed == reflex);
+	if (m_conditionedReflexProceed == reflex)
+	{
+		m_conditionedReflexProceed = nullptr;
+		m_conditionedReflexProceedIn = nullptr;
+		m_reinforcementsCount = NervousSystem::Instance()->GetReinforcementCount();
+	}
 }
 
 ConditionedReflexNeuron* ConditionedReflexCreatorNeuron::GetConditionedReflexProceed() const
@@ -425,6 +453,8 @@ void ConditionedReflexNeuron::Tick()
 			--m_proceedTime;
 			if (!m_proceedTime)
 			{
+				NSNamespace::GetConditionedReflexCreatorNeuron()->FinishConditionedReflex(this);
+				NervousSystem::Instance()->SetStatus(NervousSystem::NervousSystemStatus::Relaxing);
 			}
 		}
 		else
@@ -452,10 +482,11 @@ void ConditionedReflexNeuron::Tick()
 			error /= m_excitation.size() * 100;
 			NervousSystem::Instance()->SetConditionedTmpStat(error);
 			uint32_t prognosticReinforcement = m_prognosticNeuron->GetPrognosticReinforcement();
-			if (prognosticReinforcement > CONDITIONED_REFLEX_DENDRITES_NUM / 2)
+			if (error < 5000 && prognosticReinforcement > CONDITIONED_REFLEX_DENDRITES_NUM / 4)
 			{
 				NSNamespace::GetConditionedReflexCreatorNeuron()->SetConditionedReflex(this);
 				m_proceedTime = m_proceedTimeMax;
+				NervousSystem::Instance()->SetStatus(NervousSystem::NervousSystemStatus::ConditionedReflexProceed);
 			}
 		}
 	}
@@ -500,7 +531,7 @@ uint32_t PrognosticNeuron::GetPrognosticReinforcement() const
 	uint32_t prognosticReinforcement = 0;
 	for (const auto &dendrite : m_dendrite)
 	{
-		assert(dynamic_cast<ExcitationAccumulatorNeuron>(NSNamespace::GetNeuronInterface(dendrite)));
+		assert(dynamic_cast<ExcitationAccumulatorNeuron*>(NSNamespace::GetNeuronInterface(dendrite)));
 		ExcitationAccumulatorNeuron *neuron = (ExcitationAccumulatorNeuron*)NSNamespace::GetNeuronInterface(dendrite);
 		prognosticReinforcement += neuron->IsReinforcementActive();
 	}

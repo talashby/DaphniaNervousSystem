@@ -330,10 +330,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				int32_t reinforcementLevelStat;
 				int32_t reinforcementsCountStat;
 				int32_t minConditionedTmp;
-				NervousSystem::Instance()->GetStatisticsParams(reinforcementLevelStat, reinforcementsCountStat, minConditionedTmp);
+				uint32_t minNervousSystemTiming;
+				uint32_t maxNervousSystemTiming;
+				uint32_t conditionedReflexCreatorTiming;
+				NervousSystem::Instance()->GetStatisticsParams(reinforcementLevelStat, reinforcementsCountStat, minConditionedTmp,
+					minNervousSystemTiming, maxNervousSystemTiming, conditionedReflexCreatorTiming);
 				strOut += "\nReinforcement Level: " + std::to_string(reinforcementLevelStat);
 				strOut += "\nReinforcemens Counter: " + std::to_string(reinforcementsCountStat);
 				strOut += "\nminConditionedTmp: " + std::to_string(minConditionedTmp);
+				strOut += "\nTick time(ms). Fastest nervous system thread: " + std::to_string(minNervousSystemTiming / 1000.0f);
+				strOut += "\nTick time(ms). Slowest nervous system thread: " + std::to_string(maxNervousSystemTiming / 1000.0f);
+				strOut += "\nTick time(ms). ConditionedReflexCreator thread: " + std::to_string(conditionedReflexCreatorTiming / 1000.0f);
+				const char *status = NervousSystem::Instance()->GetStatus();
+				strOut += "\nNervous system status: " + std::string(status);
 			}
 			DrawText(hdc, strOut.c_str(), (int)strOut.length(), &rc, DT_LEFT);
 		}
