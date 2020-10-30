@@ -224,6 +224,12 @@ uint16_t ExcitationAccumulatorNeuron::GetAccumulatedExcitation()
 	return m_accumulatedExcitationOut[isTimeEven];
 }
 
+void ExcitationAccumulatorNeuron::ResetExcitationOut()
+{
+	int isTimeEven = (NSNamespace::GetNSTime() + 1) % 2;
+	m_accumulatedExcitationOut[isTimeEven] = 0;
+}
+
 void ExcitationAccumulatorNeuron::SetReflexCreatorDendriteIndex(int32_t index) // -1 not connected // used by ConditionedReflexCreatorNeuron only
 {
 	m_reflexCreatorDendriteIndex = index;
@@ -378,6 +384,11 @@ void ConditionedReflexCreatorNeuron::Tick()
 		else
 		{
 			m_conditionedReflexCurrent->Init(m_dendrite, m_excitation);
+			for (auto &dendrite : m_dendrite)
+			{
+				ExcitationAccumulatorNeuron* excitationAccumulatorNeuron = (ExcitationAccumulatorNeuron*)NSNamespace::GetNeuronInterface(dendrite);
+				excitationAccumulatorNeuron->ResetExcitationOut();
+			}
 			AccumulateExcitation(true); // accumulate all excitations
 			m_prognosticCurrent->Init(m_dendrite, m_excitation);
 			m_conditionedReflexCurrent->SetPrognosticNeuron(m_prognosticCurrent);
@@ -482,7 +493,7 @@ void ConditionedReflexNeuron::Tick()
 			error /= m_excitation.size() * 100;
 			NervousSystem::Instance()->SetConditionedTmpStat(error);
 			uint32_t prognosticReinforcement = m_prognosticNeuron->GetPrognosticReinforcement();
-			if (error < 5000 && prognosticReinforcement > CONDITIONED_REFLEX_DENDRITES_NUM / 4)
+			if (error < 5000 && prognosticReinforcement > CONDITIONED_REFLEX_DENDRITES_NUM / 3)
 			{
 				NSNamespace::GetConditionedReflexCreatorNeuron()->SetConditionedReflex(this);
 				m_proceedTime = m_proceedTimeMax;

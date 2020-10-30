@@ -146,6 +146,7 @@ public:
 	void Tick() override;
 
 	uint16_t GetAccumulatedExcitation();
+	void ResetExcitationOut(); // used to create prognostic neuron
 
 	void SetReflexCreatorDendriteIndex(int32_t index); // -1 not connected // used by ConditionedReflexCreatorNeuron only
 
