@@ -127,7 +127,12 @@ void MotorNeuron::Tick()
 		isActive = true;
 		m_lastExcitationTime = NSNamespace::GetNSTime();
 	}
-	if (!m_accumulatedExcitation && !NSNamespace::GetConditionedReflexCreatorNeuron()->GetConditionedReflexProceed())
+	if (NSNamespace::GetConditionedReflexCreatorNeuron()->GetConditionedReflexProceed())
+	{
+		m_lastExcitationTime = NSNamespace::GetNSTime();
+		m_spontaneusActivityTimeFinishAbs = 0;
+	}
+	else if (!m_accumulatedExcitation)
 	{
 		if (NSNamespace::GetNSTime() - m_lastExcitationTime > m_spontaneusActivityTimeStart)
 		{
@@ -464,8 +469,8 @@ void ConditionedReflexNeuron::Tick()
 			--m_proceedTime;
 			if (!m_proceedTime)
 			{
-				NSNamespace::GetConditionedReflexCreatorNeuron()->FinishConditionedReflex(this);
 				NervousSystem::Instance()->SetStatus(NervousSystem::NervousSystemStatus::Relaxing);
+				NSNamespace::GetConditionedReflexCreatorNeuron()->FinishConditionedReflex(this);
 			}
 		}
 		else
