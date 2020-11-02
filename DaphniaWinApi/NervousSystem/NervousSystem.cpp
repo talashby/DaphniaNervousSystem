@@ -302,13 +302,14 @@ bool NervousSystem::IsSimulationRunning() const
 	return s_isSimulationRunning;
 }
 
-void NervousSystem::GetStatisticsParams(int32_t &reinforcementLevelStat, int32_t &reinforcementsCountStat,
+void NervousSystem::GetStatisticsParams(uint32_t &reinforcementLevelStat, uint32_t &reinforcementsCountStat, uint32_t &condReflCountStat,
 	int32_t &minConditionedTmp, uint32_t &minNervousSystemTiming, uint32_t &maxNervousSystemTiming,
 	uint32_t &conditionedReflexCreatorTiming) const
 {
 	std::lock_guard<std::mutex> guard(s_statisticsMutex);
 	reinforcementLevelStat = m_reinforcementLevelStat;
 	reinforcementsCountStat = m_reinforcementsCountStat;
+	condReflCountStat = NSNamespace::GetConditionedReflexCreatorNeuron()->GetCondReflCountStat();
 	minConditionedTmp = m_minConditionedTmpStat;
 	minNervousSystemTiming = std::numeric_limits<uint32_t>::max();
 	maxNervousSystemTiming = 0;

@@ -389,6 +389,7 @@ void ConditionedReflexCreatorNeuron::Tick()
 		else
 		{
 			m_conditionedReflexCurrent->Init(m_dendrite, m_excitation);
+			++m_condReflCountStat;
 			for (auto &dendrite : m_dendrite)
 			{
 				ExcitationAccumulatorNeuron* excitationAccumulatorNeuron = (ExcitationAccumulatorNeuron*)NSNamespace::GetNeuronInterface(dendrite);
@@ -439,6 +440,11 @@ void ConditionedReflexCreatorNeuron::FinishConditionedReflex(ConditionedReflexNe
 ConditionedReflexNeuron* ConditionedReflexCreatorNeuron::GetConditionedReflexProceed() const
 {
 	return m_conditionedReflexProceed.load();
+}
+
+int32_t ConditionedReflexCreatorNeuron::GetCondReflCountStat() const
+{
+	return m_condReflCountStat.load();
 }
 
 void ConditionedReflexNeuron::Init(std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> &dendrite, std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> &accumulatedExcitation)

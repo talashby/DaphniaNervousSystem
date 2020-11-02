@@ -179,6 +179,8 @@ public:
 	void SetConditionedReflex(ConditionedReflexNeuron *reflex);
 	void FinishConditionedReflex(ConditionedReflexNeuron *reflex);
 	ConditionedReflexNeuron* GetConditionedReflexProceed() const;
+
+	int32_t GetCondReflCountStat() const; // used by ConditionedReflexCreatorNeuron only
 private:
 	void AccumulateExcitation(bool isFullCircle);
 
@@ -201,6 +203,7 @@ private:
 	int32_t m_reinforcementsCount;
 	std::atomic<ConditionedReflexNeuron*> m_conditionedReflexProceedIn;
 	std::atomic <ConditionedReflexNeuron*> m_conditionedReflexProceed;
+	std::atomic<uint32_t> m_condReflCountStat;
 };
 
 class ConditionedReflexNeuron : public Neuron
