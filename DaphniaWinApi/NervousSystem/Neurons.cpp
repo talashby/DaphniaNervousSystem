@@ -136,6 +136,7 @@ void MotorNeuron::Tick()
 	{
 		if (NSNamespace::GetNSTime() - m_lastExcitationTime > m_spontaneusActivityTimeStart)
 		{
+			++m_movingSpontaneousCount;
 			++m_accumulatedExcitation;
 			m_spontaneusActivityTimeFinishAbs = NSNamespace::GetNSTime() + MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME_DURATION;
 			m_spontaneusActivityTimeStart = MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME * (PPh::Rand32(67) + 66) / 100;
@@ -172,6 +173,12 @@ void MotorNeuron::ExcitatorySynapse()
 {
 	int isTimeEven = (NSNamespace::GetNSTime() + 1) % 2;
 	++m_dendrite[isTimeEven];
+}
+
+std::atomic<uint32_t> MotorNeuron::m_movingSpontaneousCount;
+uint32_t MotorNeuron::GetMovingSpontaneousCount()
+{
+	return m_movingSpontaneousCount.load();
 }
 
 void ExcitationAccumulatorNeuron::Init(uint32_t dendrite)
@@ -409,6 +416,10 @@ void ConditionedReflexCreatorNeuron::Tick()
 		if (!m_conditionedReflexProceed)
 		{
 			m_conditionedReflexProceed.store(m_conditionedReflexProceedIn.load());
+			if (m_conditionedReflexProceed)
+			{
+				++m_condReflLaunchedStat;
+			}
 		}
 		else
 		{
@@ -442,9 +453,14 @@ ConditionedReflexNeuron* ConditionedReflexCreatorNeuron::GetConditionedReflexPro
 	return m_conditionedReflexProceed.load();
 }
 
-int32_t ConditionedReflexCreatorNeuron::GetCondReflCountStat() const
+uint32_t ConditionedReflexCreatorNeuron::GetCondReflCountStat() const
 {
 	return m_condReflCountStat.load();
+}
+
+uint32_t ConditionedReflexCreatorNeuron::GetCondReflLaunchedStat() const
+{
+	return m_condReflLaunchedStat.load();
 }
 
 void ConditionedReflexNeuron::Init(std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> &dendrite, std::array <uint16_t, CONDITIONED_REFLEX_DENDRITES_NUM> &accumulatedExcitation)

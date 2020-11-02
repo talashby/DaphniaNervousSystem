@@ -120,7 +120,7 @@ public:
 	void Tick() override;
 
 	void ExcitatorySynapse();
-
+	static uint32_t GetMovingSpontaneousCount();
 private:
 	uint8_t m_dendrite[2]; // 0-254 - excitation 255 - connection lost
 	uint8_t m_axon[2]; // 0-254 - excitation 255 - connection lost
@@ -129,6 +129,7 @@ private:
 	uint32_t m_spontaneusActivityTimeStart;
 	uint64_t m_spontaneusActivityTimeFinishAbs;
 	bool m_isActive[2];
+	static std::atomic<uint32_t> m_movingSpontaneousCount;
 };
 
 class ExcitationAccumulatorNeuron : public Neuron
@@ -180,7 +181,8 @@ public:
 	void FinishConditionedReflex(ConditionedReflexNeuron *reflex);
 	ConditionedReflexNeuron* GetConditionedReflexProceed() const;
 
-	int32_t GetCondReflCountStat() const; // used by ConditionedReflexCreatorNeuron only
+	uint32_t GetCondReflCountStat() const;
+	uint32_t GetCondReflLaunchedStat() const;
 private:
 	void AccumulateExcitation(bool isFullCircle);
 
@@ -203,7 +205,8 @@ private:
 	int32_t m_reinforcementsCount;
 	std::atomic<ConditionedReflexNeuron*> m_conditionedReflexProceedIn;
 	std::atomic <ConditionedReflexNeuron*> m_conditionedReflexProceed;
-	std::atomic<uint32_t> m_condReflCountStat;
+	std::atomic<uint32_t> m_condReflCountStat; // how many conditioned reflex created
+	std::atomic<uint32_t> m_condReflLaunchedStat; // how many conditioned reflex launched
 };
 
 class ConditionedReflexNeuron : public Neuron
