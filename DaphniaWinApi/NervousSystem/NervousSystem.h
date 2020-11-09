@@ -29,7 +29,8 @@ public:
 	bool IsSimulationRunning() const;
 	void GetStatisticsParams(uint32_t &reinforcementLevelStat, uint32_t &reinforcementsCountStat, uint32_t &condReflCountStat,
 		uint32_t &movingSpontaneousCount, uint32_t &condReflLaunched, int32_t &minConditionedTmp,
-		uint32_t &minNervousSystemTiming, uint32_t &maxNervousSystemTiming, uint32_t &conditionedReflexCreatorTiming) const;
+		uint32_t &minNervousSystemTiming, uint32_t &maxNervousSystemTiming, uint32_t &conditionedReflexCreatorTiming,
+		uint32_t &condReflPredictionResult) const;
 	int32_t GetReinforcementCount() const; // thread safe changed on NextTick
 	int32_t GetReinforcementLevel() const; // thread safe changed on NextTick
 	uint64_t GetTime() const;

@@ -221,6 +221,7 @@ public:
 
 	void Tick() override;
 	void SetPrognosticNeuron(const PrognosticNeuron *prognosticNeuron);
+	static uint32_t GetLastPredictionResult();
 private:
 	std::atomic<bool> m_isInitialized;
 	std::array<uint32_t, CONDITIONED_REFLEX_DENDRITES_NUM> m_dendrite; // read corresponding axon
@@ -229,6 +230,8 @@ private:
 	uint32_t m_proceedTimeMax;
 
 	const PrognosticNeuron *m_prognosticNeuron;
+
+	static std::atomic<uint32_t> m_lastPrediction;
 	//uint64_t m_debugCheckTime = -1; // to check Tick calls once per quantum of time
 };
 

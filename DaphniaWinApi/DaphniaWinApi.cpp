@@ -336,12 +336,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				uint32_t minNervousSystemTiming;
 				uint32_t maxNervousSystemTiming;
 				uint32_t conditionedReflexCreatorTiming;
+				uint32_t condReflLastPrediction;
 				NervousSystem::Instance()->GetStatisticsParams(reinforcementLevelStat, reinforcementsCountStat, condReflCountStat,
 					movingSpontaneousCount, condReflLaunched,
-					minConditionedTmp, minNervousSystemTiming, maxNervousSystemTiming, conditionedReflexCreatorTiming);
+					minConditionedTmp, minNervousSystemTiming, maxNervousSystemTiming, conditionedReflexCreatorTiming,
+					condReflLastPrediction);
 				strOut += "\nReinforcement Level: " + std::to_string(reinforcementLevelStat);
 				strOut += "\nCreated counter Reinforcements/CondRefl: " + std::to_string(reinforcementsCountStat) + "/" + std::to_string(condReflCountStat);
 				strOut += "\nLaunched counter Spontaneous/CondRefl: " + std::to_string(movingSpontaneousCount) + "/" + std::to_string(condReflLaunched);
+				strOut += "\nCondRefl last prediction result: " + std::to_string(condReflLastPrediction);
 				strOut += "\nminConditionedTmp: " + std::to_string(minConditionedTmp);
 				strOut += "\nTick time(ms). Fastest nervous system thread: " + std::to_string(minNervousSystemTiming / 1000.0f);
 				strOut += "\nTick time(ms). Slowest nervous system thread: " + std::to_string(maxNervousSystemTiming / 1000.0f);

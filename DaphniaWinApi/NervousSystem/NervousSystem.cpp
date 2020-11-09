@@ -304,7 +304,8 @@ bool NervousSystem::IsSimulationRunning() const
 
 void NervousSystem::GetStatisticsParams(uint32_t &reinforcementLevelStat, uint32_t &reinforcementsCountStat, uint32_t &condReflCountStat,
 	uint32_t &movingSpontaneousCount, uint32_t &condReflLaunched, int32_t &minConditionedTmp,
-	uint32_t &minNervousSystemTiming, uint32_t &maxNervousSystemTiming,	uint32_t &conditionedReflexCreatorTiming) const
+	uint32_t &minNervousSystemTiming, uint32_t &maxNervousSystemTiming,	uint32_t &conditionedReflexCreatorTiming,
+	uint32_t &condReflPredictionResult) const
 {
 	std::lock_guard<std::mutex> guard(s_statisticsMutex);
 	reinforcementLevelStat = m_reinforcementLevelStat;
@@ -315,6 +316,7 @@ void NervousSystem::GetStatisticsParams(uint32_t &reinforcementLevelStat, uint32
 	minConditionedTmp = m_minConditionedTmpStat;
 	minNervousSystemTiming = std::numeric_limits<uint32_t>::max();
 	maxNervousSystemTiming = 0;
+	condReflPredictionResult = ConditionedReflexNeuron::GetLastPredictionResult();
 	for (uint32_t ii = 0; ii < s_tickTimeMusNervousSystemThreads.size()-1; ++ii)
 	{
 		minNervousSystemTiming = std::min(s_tickTimeMusNervousSystemThreads[ii], minNervousSystemTiming);

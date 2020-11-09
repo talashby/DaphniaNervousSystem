@@ -471,12 +471,15 @@ void ConditionedReflexNeuron::Init(std::array<uint32_t, CONDITIONED_REFLEX_DENDR
 	m_proceedTimeMax = MOTOR_NEURON_SPONTANEOUS_ACTIVITY_TIME_DURATION;
 }
 
+std::atomic<uint32_t> ConditionedReflexNeuron::m_lastPrediction;
+
 void ConditionedReflexNeuron::Tick()
 {
 	if (m_isInitialized)
 	{
 		if (this == NSNamespace::GetConditionedReflexCreatorNeuron()->GetConditionedReflexProceed())
 		{
+			uint32_t lastPrediction = 0;
 			for (int ii = m_dendrite.size() - 1; ii >= 0; --ii)
 			{
 				ExcitationAccumulatorNeuron *neuron = (ExcitationAccumulatorNeuron*)NSNamespace::GetNeuronInterface(m_dendrite[ii]);
@@ -486,7 +489,15 @@ void ConditionedReflexNeuron::Tick()
 					MotorNeuron *motorNeuron = (MotorNeuron*)NSNamespace::GetNeuronInterface(motorNeuronId);
 					motorNeuron->ExcitatorySynapse();
 				}
+				else
+				{
+					if (neuron->GetAccumulatedExcitation() > 0)
+					{
+						++lastPrediction;
+					}
+				}
 			}
+			m_lastPrediction = lastPrediction;
 			ConditionedReflexDendritesArray dendritesArray = NSNamespace::GetConditionedReflexCreatorNeuron()->GetDendritesArray();
 			--m_proceedTime;
 			if (!m_proceedTime)
@@ -535,6 +546,11 @@ void ConditionedReflexNeuron::Tick()
 void ConditionedReflexNeuron::SetPrognosticNeuron(const PrognosticNeuron *prognosticNeuron)
 {
 	m_prognosticNeuron = prognosticNeuron;
+}
+
+uint32_t ConditionedReflexNeuron::GetLastPredictionResult()
+{
+	return m_lastPrediction;
 }
 
 void ConditionedReflexContainerNeuron::Init(ConditionedReflexNeuron *begin, ConditionedReflexNeuron *end)
